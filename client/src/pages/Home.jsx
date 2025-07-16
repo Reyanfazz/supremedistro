@@ -13,7 +13,7 @@ const Home = () => {
 
   return (
     <>
-      <header className="bg-gray-100 p-3 text-center text-sm">
+      <header className="bg-gray-100 p-3 pt-20 text-center text-sm">
         <p>
           Same day dispatch if ordered before 2pm | Free delivery on orders over £50 | Contact us: 01234 567890
         </p>

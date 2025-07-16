@@ -26,7 +26,7 @@ const Register = () => {
       if (res.data.user.role === 'admin') {
         navigate('/admin/dashboard');
       } else {
-        navigate('/Home');
+        navigate('/');
       }
     } catch (err) {
       setError(err.response?.data?.msg || 'Registration failed');

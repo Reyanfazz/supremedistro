@@ -110,19 +110,7 @@ const Header = () => {
         </nav>
       </header>
 
-      {/* Contact Info Bar */}
-      <div className="fixed top-14 left-0 right-0 bg-blue-900 text-white text-sm py-1 px-4 flex justify-between items-center z-40">
-        <div>
-          Same Day Dispatch if ordered before 2PM | Delivery info: Free over £50
-        </div>
-        <div className="hidden sm:flex space-x-6">
-          <a href="tel:+441234567890">Tel: 01234 567 890</a>
-          <a href="mailto:info@supremedistro.co.uk">
-            Email: info@supremedistro.co.uk
-          </a>
-        </div>
-      </div>
-
+     
       {/* Mobile Sidebar */}
       {sidebarOpen && (
         <div
@@ -208,8 +196,7 @@ const Header = () => {
         )}
       </nav>
 
-      {/* Spacer */}
-      <div className="pt-28 md:pt-28" />
+     
     </>
   );
 };
