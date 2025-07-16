@@ -36,10 +36,10 @@ const Header = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     setUser(null);
-    navigate("/login");
+    navigate("/");
   };
 
-  const dashboardLink = user?.role === "admin" ? "/admin-dashboard" : "/user-dashboard";
+  const dashboardLink = user?.role === "admin" ? "/admin/dashboard" : "/";
 
   const avatarUrl = user
     ? `https://api.dicebear.com/7.x/identicon/svg?seed=${user.email || user.name}`
