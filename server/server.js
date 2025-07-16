@@ -16,15 +16,32 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// === CORS ===
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://supremedistro.vercel.app'
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+}));
+
 // === Middleware ===
-app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
 app.use(express.json());
 
 app.use(session({
-  secret: '09d8a71cc46255b0268719484799422226da6e1fcff5835c5fb806a58463ae6b',
+  secret: process.env.JWT_SECRET,
   resave: false,
   saveUninitialized: true,
 }));
+
 app.use(passport.initialize());
 app.use(passport.session());
 
