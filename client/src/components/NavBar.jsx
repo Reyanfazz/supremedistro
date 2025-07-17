@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useContext, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   FiMenu,
@@ -6,50 +6,44 @@ import {
   FiHome,
   FiShoppingBag,
   FiUser,
-  FiPhone,
   FiInfo,
   FiEdit3,
   FiLogOut,
   FiUserCheck,
 } from "react-icons/fi";
+import { AuthContext } from "../context/AuthContext";
 
 const Header = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [user, setUser] = useState(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef();
   const navigate = useNavigate();
-
-  // Get user from localStorage on mount and listen for changes
-  useEffect(() => {
-    const loadUser = () => {
-      const userData = localStorage.getItem("user");
-      setUser(userData ? JSON.parse(userData) : null);
-    };
-
-    loadUser();
-
-    // Listen to storage changes (updates from other tabs)
-    window.addEventListener("storage", loadUser);
-    return () => window.removeEventListener("storage", loadUser);
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    setUser(null);
-    navigate("/");
-  };
-
-  const dashboardLink = user?.role === "admin" ? "/admin/dashboard" : "/";
+  const { user, logout } = useContext(AuthContext);
 
   const avatarUrl = user
     ? `https://api.dicebear.com/7.x/identicon/svg?seed=${user.email || user.name}`
     : null;
 
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
+
+  // Close dropdown when clicking outside
+  const handleClickOutside = (e) => {
+    if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+      setDropdownOpen(false);
+    }
+  };
+
+  React.useEffect(() => {
+    window.addEventListener("click", handleClickOutside);
+    return () => window.removeEventListener("click", handleClickOutside);
+  }, []);
+
   return (
     <>
-      {/* Main Navigation */}
       <header className="fixed top-0 left-0 right-0 bg-white shadow-md z-50 flex items-center justify-between px-4 h-14">
-        {/* Hamburger for mobile */}
         <button
           className="text-2xl md:hidden"
           onClick={() => setSidebarOpen(true)}
@@ -58,12 +52,10 @@ const Header = () => {
           <FiMenu />
         </button>
 
-        {/* Logo */}
         <Link to="/" className="font-bold text-xl tracking-wide">
           SupremeDistro
         </Link>
 
-        {/* Desktop Nav Links */}
         <nav className="hidden md:flex space-x-6 font-semibold items-center text-gray-700">
           <Link to="/" onClick={() => setSidebarOpen(false)}>
             <FiHome className="inline-block mr-2" />
@@ -83,24 +75,49 @@ const Header = () => {
           </Link>
 
           {user ? (
-            <>
-              <Link to={dashboardLink} className="flex items-center space-x-1">
-                <FiUserCheck />
-                <span>Dashboard</span>
-              </Link>
-              <img
-                src={avatarUrl}
-                alt="avatar"
-                className="w-8 h-8 rounded-full border"
-              />
+            <div className="relative" ref={dropdownRef}>
               <button
-                onClick={handleLogout}
-                className="flex items-center space-x-1 text-red-500"
+                onClick={() => setDropdownOpen((prev) => !prev)}
+                className="flex items-center space-x-2 hover:bg-gray-100 px-2 py-1 rounded"
               >
-                <FiLogOut />
-                <span>Logout</span>
+                
+                <img
+                  src={avatarUrl}
+                  alt="avatar"
+                  className="w-8 h-8 rounded-full border"
+                />
+                <span>{user.name}</span>
               </button>
-            </>
+
+              {dropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white border rounded shadow z-50">
+                  <Link
+                    to="/profile"
+                    className="block px-4 py-2 text-sm hover:bg-gray-100"
+                    onClick={() => setDropdownOpen(false)}
+                  >
+                    Personal Details
+                  </Link>
+
+                  {user.role !== "admin" && (
+                    <Link
+                      to="/orders"
+                      className="block px-4 py-2 text-sm hover:bg-gray-100"
+                      onClick={() => setDropdownOpen(false)}
+                    >
+                      View Orders
+                    </Link>
+                  )}
+
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
             <Link to="/login" className="flex items-center space-x-1">
               <FiUser />
@@ -109,69 +126,6 @@ const Header = () => {
           )}
         </nav>
       </header>
-
-     
-      {/* Mobile Sidebar */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-50"
-          onClick={() => setSidebarOpen(false)}
-        >
-          <aside
-            className="fixed top-0 left-0 w-64 h-full bg-white p-6 z-60"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              className="text-2xl mb-6"
-              onClick={() => setSidebarOpen(false)}
-              aria-label="Close menu"
-            >
-              <FiX />
-            </button>
-            <nav className="flex flex-col space-y-4 text-lg text-gray-800">
-              <Link to="/" onClick={() => setSidebarOpen(false)}>
-                <FiShoppingBag className="inline-block mr-2" />
-                Home
-              </Link>
-              <Link to="/shop" onClick={() => setSidebarOpen(false)}>
-                <FiShoppingBag className="inline-block mr-2" />
-                Shop
-              </Link>
-              <Link to="/about" onClick={() => setSidebarOpen(false)}>
-                <FiInfo className="inline-block mr-2" />
-                About Us
-              </Link>
-              <Link to="/blog" onClick={() => setSidebarOpen(false)}>
-                <FiEdit3 className="inline-block mr-2" />
-                Blog
-              </Link>
-              {user ? (
-                <>
-                  <Link
-                    to={dashboardLink}
-                    onClick={() => setSidebarOpen(false)}
-                  >
-                    <FiUserCheck className="inline-block mr-2" />
-                    Dashboard
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="text-red-600 flex items-center space-x-2"
-                  >
-                    <FiLogOut />
-                    <span>Logout</span>
-                  </button>
-                </>
-              ) : (
-                <Link to="/login" onClick={() => setSidebarOpen(false)}>
-                  <FiUser className="inline-block mr-2" />
-                  Login
-                </Link>
-              )}
-            </nav>
-          </aside>
-        </div>
-      )}
 
       {/* Mobile Bottom Nav */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white shadow-inner flex justify-around items-center h-14 md:hidden z-40 text-gray-700">
@@ -184,9 +138,9 @@ const Header = () => {
           Shop
         </Link>
         {user ? (
-          <Link to={dashboardLink} className="flex flex-col items-center text-xs">
+          <Link to="/profile" className="flex flex-col items-center text-xs">
             <FiUserCheck className="text-xl" />
-            Dashboard
+            Profile
           </Link>
         ) : (
           <Link to="/login" className="flex flex-col items-center text-xs">
@@ -195,8 +149,6 @@ const Header = () => {
           </Link>
         )}
       </nav>
-
-     
     </>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { AuthContext } from './AuthContext';
 
 const AuthProvider = ({ children }) => {
@@ -24,11 +24,9 @@ const AuthProvider = ({ children }) => {
     setToken('');
   };
 
-  return (
-    <AuthContext.Provider value={{ user, setUser, token, setToken, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const value = useMemo(() => ({ user, setUser, token, setToken, logout }), [user, token]);
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export default AuthProvider;
