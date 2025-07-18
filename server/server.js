@@ -6,16 +6,21 @@ import cors from 'cors';
 import passport from 'passport';
 import session from 'express-session';
 import './config/passport.js';
-
+import productroutes from './routes/productRoutes.js';
 import router from './routes/auth.js';
 import protectedRoutes from './routes/protectedRoutes.js';
-
+import fs from 'fs';
+import path from 'path';
+import adminRoutes from './routes/adminRoutes.js';
 // === Load env ===
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir);
+}
 // === CORS ===
 const allowedOrigins = [
   'http://localhost:3000',
@@ -44,11 +49,13 @@ app.use(session({
 
 app.use(passport.initialize());
 app.use(passport.session());
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // === Routes ===
 app.use('/api/auth', router);
 app.use('/api/protected', protectedRoutes);
-
+app.use('/api/products', productroutes);
+app.use('/api/admin', adminRoutes);
 // === MongoDB connection ===
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {

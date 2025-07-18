@@ -1,87 +1,201 @@
-// src/pages/Home.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
+import axios from 'axios';
+import { AuthContext } from '../context/AuthContext';
+import CartContext  from '../components/context/CartContext';
+import { useNavigate } from 'react-router-dom';
+
+const CATEGORIES = ['Electronics', 'Clothing', 'Books', 'Home', 'Sports'];
 
 const Home = () => {
   const [isFaded, setIsFaded] = useState(false);
+  const [products, setProducts] = useState([]); // All featured + deals combined
+  const [filtered, setFiltered] = useState([]);
+  const [activeCat, setActiveCat] = useState('');
+  const { user } = useContext(AuthContext);
+  const { addToCart } = useContext(CartContext);
+  const navigate = useNavigate();
+
+  // Current time for countdown timers (updated every second)
+  const [now, setNow] = useState(new Date());
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsFaded(true);
-    }, 5000); // fade after 5 seconds
-    return () => clearTimeout(timer);
+    const fadeTimer = setTimeout(() => setIsFaded(true), 5000);
+    return () => clearTimeout(fadeTimer);
   }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch featured products AND deals of the day combined
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [featuredRes, dealsRes] = await Promise.all([
+          axios.get(`${import.meta.env.VITE_API_URL}/api/products?featured=true`),
+          axios.get(`${import.meta.env.VITE_API_URL}/api/products?dealOfDay=true`),
+        ]);
+
+        // Add a flag _isDeal to deal products for UI badges and countdown
+        const dealsWithFlag = dealsRes.data.map((p) => ({ ...p, _isDeal: true }));
+        const featuredWithFlag = featuredRes.data.map((p) => ({ ...p, _isDeal: false }));
+
+        // Combine and remove duplicates (in case product is both featured and deal)
+        const combinedMap = new Map();
+
+        featuredWithFlag.forEach((p) => combinedMap.set(p._id, p));
+        dealsWithFlag.forEach((p) => combinedMap.set(p._id, p));
+
+        const combinedProducts = Array.from(combinedMap.values());
+
+        setProducts(combinedProducts);
+        setFiltered(combinedProducts);
+      } catch (err) {
+        console.error('Failed to fetch products or deals', err);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const filterByCategory = (cat) => {
+    if (activeCat === cat) {
+      setFiltered(products);
+      setActiveCat('');
+    } else {
+      setFiltered(products.filter((p) => p.category === cat));
+      setActiveCat(cat);
+    }
+  };
+
+  const formatTimeDiff = (diff) => {
+    if (diff <= 0) return '00:00:00';
+    const hours = Math.floor(diff / 3600000);
+    const minutes = Math.floor((diff % 3600000) / 60000);
+    const seconds = Math.floor((diff % 60000) / 1000);
+    return `${hours.toString().padStart(2, '0')}:${minutes
+      .toString()
+      .padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  // Single product card for featured or deal
+  const ProductCard = ({ p }) => {
+    let timeLeft = null;
+    if (p._isDeal && p.expiryDate) {
+      const expiry = new Date(p.expiryDate);
+      const diff = expiry - now;
+      timeLeft = formatTimeDiff(diff);
+    }
+
+    return (
+      <div className="border p-4 rounded shadow hover:shadow-lg transition duration-300 relative min-w-[250px]">
+        {/* Badges */}
+        {!p._isDeal && p.isFeatured && (
+          <span className="absolute top-2 left-2 bg-yellow-400 text-yellow-900 text-xs px-2 py-0.5 rounded font-semibold">
+            Featured
+          </span>
+        )}
+        {p._isDeal && (
+          <span className="absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded font-semibold">
+            Deal of the Day
+          </span>
+        )}
+
+        <img
+          src={`${import.meta.env.VITE_API_URL}/uploads/${p.image}`}
+          alt={p.name}
+          className="w-full h-40 object-cover mb-3 rounded"
+        />
+        <h3 className="font-semibold text-lg">{p.name}</h3>
+        <p className="text-sm text-gray-600">{p.description?.slice(0, 60)}...</p>
+
+        {p._isDeal && timeLeft && (
+          <p className="text-xs text-red-600 font-semibold mt-1">
+            Ends in: <span>{timeLeft}</span>
+          </p>
+        )}
+
+        {user ? (
+          <div className="mt-2 space-y-2">
+            <div className="text-green-600 font-bold">₹{p.dailyPrice}</div>
+            {p.offSalePrice && (
+              <div className="text-sm text-red-500 line-through">₹{p.offSalePrice}</div>
+            )}
+            <button
+              onClick={() => addToCart(p)}
+              className="mt-2 bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+            >
+              Add to Cart
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs mt-2 text-gray-500 italic">Login to see prices & buy</p>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>
       <header className="bg-gray-100 p-3 pt-20 text-center text-sm">
         <p>
-          Same day dispatch if ordered before 2pm | Free delivery on orders over £50 | Contact us: 01234 567890
+          Same day dispatch if ordered before 2pm | Free delivery on orders over £50 | Contact us: 01234
+          567890
         </p>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Latest Deals / Delivery info section */}
+        {/* Unified Featured + Deals Section */}
         <section className="mb-12">
-          <h2 className="text-2xl font-semibold mb-4">Latest Deals & Delivery Info</h2>
-          <p>Get your favourite products delivered fast with our reliable shipping service.</p>
-        </section>
+          <h2 className="text-2xl font-semibold mb-4">Featured & Deals</h2>
 
-        {/* Product Gallery Placeholder */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-semibold mb-6">Our Products</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div className="border p-4 rounded shadow hover:shadow-lg cursor-pointer">
-              <img
-                src="/images/sample-product.jpg"
-                alt="Sample Product"
-                className="w-full h-48 object-cover mb-3"
-              />
-              <h3 className="font-semibold text-lg">Sample Product Name</h3>
-              <p className="text-sm text-gray-600">Short product description here.</p>
-            </div>
+          {/* Category filters */}
+          <div className="mb-6 flex flex-wrap gap-4">
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => filterByCategory(cat)}
+                className={`px-4 py-1 rounded-full border ${
+                  activeCat === cat ? 'bg-green-600 text-white' : 'text-gray-700 bg-white'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+            {activeCat && (
+              <button
+                onClick={() => filterByCategory(activeCat)}
+                className="px-4 py-1 rounded-full border text-gray-700 bg-white"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          {/* Responsive grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {filtered.map((p) => (
+              <ProductCard key={p._id} p={p} />
+            ))}
+          </div>
+
+          {/* Load More */}
+          <div className="mt-8 text-center">
+            <button
+              onClick={() => navigate('/shop')}
+              className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
+            >
+              Load More Products
+            </button>
           </div>
         </section>
 
-        {/* Brands Logos */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-semibold mb-4">Brands We Work With</h2>
-          <div className="flex flex-wrap justify-center gap-8">
-            <img src="/images/brand1.png" alt="Brand 1" className="h-12" />
-            <img src="/images/brand2.png" alt="Brand 2" className="h-12" />
-            <img src="/images/brand3.png" alt="Brand 3" className="h-12" />
-          </div>
-        </section>
-
-        {/* Latest Blog Previews */}
-        <section>
-          <h2 className="text-2xl font-semibold mb-6">Latest From Our Blog</h2>
-          <div className="space-y-6">
-            <article className="border-b pb-4">
-              <h3 className="text-xl font-semibold cursor-pointer hover:text-red-600">
-                Exciting New Product Launches This Month
-              </h3>
-              <p className="text-gray-700">Stay updated on the latest in vaping and accessories...</p>
-            </article>
-          </div>
-        </section>
-
-        {/* Shortcut links */}
-        <section className="mt-12">
-          <h2 className="text-2xl font-semibold mb-4">Quick Links</h2>
-          <div className="flex flex-wrap gap-6">
-            <a href="/shop" className="text-red-700 hover:underline">Shop</a>
-            <a href="/about" className="text-red-700 hover:underline">About Us</a>
-            <a href="/contact" className="text-red-700 hover:underline">Contact</a>
-            <a href="/faqs" className="text-red-700 hover:underline">FAQs</a>
-            <a href="/blog" className="text-red-700 hover:underline">Blog</a>
-            <a href="/legal/terms" className="text-red-700 hover:underline">Terms & Conditions</a>
-          </div>
-        </section>
+        {/* You can add other sections (brands, blog, quick links) below here if needed */}
       </main>
 
-      {/* WhatsApp Floating Button (Smaller + Fade Effect) */}
+      {/* WhatsApp Floating Button */}
       <a
-        href="https://wa.me/441234567890" // Replace with your actual number
+        href="https://wa.me/441234567890"
         target="_blank"
         rel="noopener noreferrer"
         className={`fixed right-4 top-1/2 transform -translate-y-1/2 bg-green-500 hover:bg-green-600 text-white rounded-full p-2 shadow-lg z-50 transition-opacity duration-1000 ${
@@ -89,7 +203,6 @@ const Home = () => {
         }`}
         aria-label="Chat with us on WhatsApp"
       >
-        {/* WhatsApp Icon */}
         <svg
           xmlns="http://www.w3.org/2000/svg"
           fill="currentColor"

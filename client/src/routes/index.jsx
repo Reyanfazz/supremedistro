@@ -16,8 +16,15 @@ import PrivacyPolicy from "../pages/Legal/PrivacyPolicy";
 import Terms from "../pages/Legal/Terms";
 import ModernSlavery from "../pages/Legal/ModernSlavery";
 import OAuthSuccess from './pages/OAuthSuccess';
+import Dashboard from "../pages/Admin/Dashboard";
+import Products from "../pages/Admin/Products";
+import AddProduct from "../pages/Admin/AddProduct";
+
 const AppRoutes = () => (
   <Routes>
+    <Route path="/admin/add-product" element={<AddProduct />} />
+    <Route path="/admin/product" element={<Products/>}/>
+    <Route path="/admin/dashboard" element={<Dashboard />} />
     <Route path="/oauth-success" element={<OAuthSuccess />} />
     <Route path="/" element={<Home />} />
     <Route path="/shop" element={<Shop />} />
