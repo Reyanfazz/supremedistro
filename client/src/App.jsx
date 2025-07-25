@@ -9,6 +9,9 @@ import AdminLayout from './components/AdminLayout';
 import Dashboard from './pages/Admin/Dashboard';
 import Products from './pages/Admin/Products';
 import AddProduct from './pages/Admin/AddProduct';
+import Shop from './pages/Shop';
+import ProductDetails from './pages/ProductDetails';
+
 function App() {
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith("/admin");
@@ -20,7 +23,12 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-
+<Route path="/shop" element={<Shop/>}/>
+<Route path="/product/:id" element={<ProductDetails />} />
+<Route
+  path="/productdetails/:id"
+  element={<ProductDetails key={location.pathname} />}
+/>
        <Route
   path="/admin/dashboard"
   element={

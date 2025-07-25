@@ -1,4 +1,3 @@
-// ✅ Backend: routes/productRoutes.js (ES Modules)
 import { Router } from 'express';
 import multer from 'multer';
 import { extname } from 'path';
@@ -6,7 +5,7 @@ import Product from '../models/Product.js';
 
 const router = Router();
 
-// Multer setup for file uploads
+// Multer setup
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'uploads/'),
   filename: (req, file, cb) => {
@@ -16,26 +15,21 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-/**
- * GET /api/products
- * Supports optional query params:
- *   ?featured=true
- *   ?dealOfDay=true
- * Both can be combined.
- * If dealOfDay=true, only returns deals with expiryDate in the future or no expiryDate set.
- */
+const cpUpload = upload.fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'brandLogo', maxCount: 1 },
+  { name: 'images', maxCount: 10 },
+]);
+
+// GET all or filtered products
 router.get('/', async (req, res) => {
   try {
     const { featured, dealOfDay } = req.query;
 
     const filter = {};
-    if (featured === 'true') {
-      filter.isFeatured = true;
-    }
+    if (featured === 'true') filter.isFeatured = true;
     if (dealOfDay === 'true') {
       filter.isDealOfDay = true;
-
-      // Only include deals not expired (expiryDate null or future)
       filter.$or = [
         { expiryDate: { $exists: false } },
         { expiryDate: null },
@@ -51,34 +45,54 @@ router.get('/', async (req, res) => {
   }
 });
 
-/**
- * POST /api/products
- * Creates a new product
- */
-router.post('/', upload.single('image'), async (req, res) => {
+// GET single product by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ message: 'Product not found' });
+    res.json(product);
+  } catch (err) {
+    console.error('Error fetching product:', err);
+    res.status(500).json({ message: 'Failed to fetch product' });
+  }
+});
+
+// POST new product
+router.post('/', cpUpload, async (req, res) => {
   try {
     const {
       name,
       description,
       category,
+      brand,
+      brandDescription,
       dailyPrice,
       offSalePrice,
+      stock,
       isFeatured,
       isDealOfDay,
       expiryDate,
     } = req.body;
-    const image = req.file ? req.file.filename : null;
+
+    const image = req.files['image'] ? req.files['image'][0].filename : null;
+    const brandLogo = req.files['brandLogo'] ? req.files['brandLogo'][0].filename : null;
+    const images = req.files['images'] ? req.files['images'].map(file => file.filename) : [];
 
     const product = new Product({
       name,
       description,
       category,
-      dailyPrice,
-      offSalePrice,
+      brand,
+      brandDescription,
+      dailyPrice: Number(dailyPrice),
+      offSalePrice: offSalePrice ? Number(offSalePrice) : undefined,
+      stock: stock ? Number(stock) : 0,
       isFeatured: isFeatured === 'true' || isFeatured === true,
       isDealOfDay: isDealOfDay === 'true' || isDealOfDay === true,
       expiryDate: expiryDate ? new Date(expiryDate) : null,
       image,
+      brandLogo,
+      images,
     });
 
     await product.save();
@@ -89,19 +103,19 @@ router.post('/', upload.single('image'), async (req, res) => {
   }
 });
 
-/**
- * PUT /api/products/:id
- * Updates an existing product
- */
-router.put('/:id', upload.single('image'), async (req, res) => {
+// PUT update product
+router.put('/:id', cpUpload, async (req, res) => {
   try {
     const { id } = req.params;
     const {
       name,
       description,
       category,
+      brand,
+      brandDescription,
       dailyPrice,
       offSalePrice,
+      stock,
       isFeatured,
       isDealOfDay,
       expiryDate,
@@ -113,14 +127,23 @@ router.put('/:id', upload.single('image'), async (req, res) => {
     product.name = name;
     product.description = description;
     product.category = category;
-    product.dailyPrice = dailyPrice;
-    product.offSalePrice = offSalePrice;
+    product.brand = brand;
+    product.brandDescription = brandDescription;
+    product.dailyPrice = Number(dailyPrice);
+    product.offSalePrice = offSalePrice ? Number(offSalePrice) : undefined;
+    product.stock = stock ? Number(stock) : product.stock;
     product.isFeatured = isFeatured === 'true' || isFeatured === true;
     product.isDealOfDay = isDealOfDay === 'true' || isDealOfDay === true;
     product.expiryDate = expiryDate ? new Date(expiryDate) : null;
 
-    if (req.file) {
-      product.image = req.file.filename;
+    if (req.files['image']) {
+      product.image = req.files['image'][0].filename;
+    }
+    if (req.files['brandLogo']) {
+      product.brandLogo = req.files['brandLogo'][0].filename;
+    }
+    if (req.files['images']) {
+      product.images = req.files['images'].map(file => file.filename);
     }
 
     await product.save();
@@ -131,10 +154,7 @@ router.put('/:id', upload.single('image'), async (req, res) => {
   }
 });
 
-/**
- * DELETE /api/products/:id
- * Deletes a product
- */
+// DELETE product
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;

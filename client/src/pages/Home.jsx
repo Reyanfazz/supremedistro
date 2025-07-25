@@ -1,21 +1,19 @@
 import React, { useEffect, useState, useContext } from 'react';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
-import CartContext  from '../components/context/CartContext';
+import CartContext from '../components/context/CartContext';
 import { useNavigate } from 'react-router-dom';
 
 const CATEGORIES = ['Electronics', 'Clothing', 'Books', 'Home', 'Sports'];
 
 const Home = () => {
   const [isFaded, setIsFaded] = useState(false);
-  const [products, setProducts] = useState([]); // All featured + deals combined
+  const [products, setProducts] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [activeCat, setActiveCat] = useState('');
   const { user } = useContext(AuthContext);
   const { addToCart } = useContext(CartContext);
   const navigate = useNavigate();
-
-  // Current time for countdown timers (updated every second)
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -28,7 +26,6 @@ const Home = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch featured products AND deals of the day combined
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -37,18 +34,14 @@ const Home = () => {
           axios.get(`${import.meta.env.VITE_API_URL}/api/products?dealOfDay=true`),
         ]);
 
-        // Add a flag _isDeal to deal products for UI badges and countdown
         const dealsWithFlag = dealsRes.data.map((p) => ({ ...p, _isDeal: true }));
         const featuredWithFlag = featuredRes.data.map((p) => ({ ...p, _isDeal: false }));
 
-        // Combine and remove duplicates (in case product is both featured and deal)
         const combinedMap = new Map();
-
         featuredWithFlag.forEach((p) => combinedMap.set(p._id, p));
         dealsWithFlag.forEach((p) => combinedMap.set(p._id, p));
 
         const combinedProducts = Array.from(combinedMap.values());
-
         setProducts(combinedProducts);
         setFiltered(combinedProducts);
       } catch (err) {
@@ -78,7 +71,6 @@ const Home = () => {
       .padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // Single product card for featured or deal
   const ProductCard = ({ p }) => {
     let timeLeft = null;
     if (p._isDeal && p.expiryDate) {
@@ -88,48 +80,57 @@ const Home = () => {
     }
 
     return (
-      <div className="border p-4 rounded shadow hover:shadow-lg transition duration-300 relative min-w-[250px]">
-        {/* Badges */}
-        {!p._isDeal && p.isFeatured && (
-          <span className="absolute top-2 left-2 bg-yellow-400 text-yellow-900 text-xs px-2 py-0.5 rounded font-semibold">
-            Featured
-          </span>
-        )}
-        {p._isDeal && (
-          <span className="absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded font-semibold">
-            Deal of the Day
-          </span>
-        )}
+      <div
+        className="border p-4 rounded shadow hover:shadow-lg transition duration-300 relative min-w-[250px] cursor-pointer flex flex-col justify-between h-full"
+        onClick={() => navigate(`/productdetails/${p._id}`)}
+      >
+        <div>
+          {!p._isDeal && p.isFeatured && (
+            <span className="absolute top-2 left-2 bg-yellow-400 text-yellow-900 text-xs px-2 py-0.5 rounded font-semibold">
+              Featured
+            </span>
+          )}
+          {p._isDeal && (
+            <span className="absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded font-semibold">
+              Deal of the Day
+            </span>
+          )}
 
-        <img
-          src={`${import.meta.env.VITE_API_URL}/uploads/${p.image}`}
-          alt={p.name}
-          className="w-full h-40 object-cover mb-3 rounded"
-        />
-        <h3 className="font-semibold text-lg">{p.name}</h3>
-        <p className="text-sm text-gray-600">{p.description?.slice(0, 60)}...</p>
-
-        {p._isDeal && timeLeft && (
-          <p className="text-xs text-red-600 font-semibold mt-1">
-            Ends in: <span>{timeLeft}</span>
+          <img
+            src={`${import.meta.env.VITE_API_URL}/uploads/${p.image}`}
+            alt={p.name}
+            className="w-full h-40 object-cover mb-3 rounded"
+          />
+          <h3 className="font-semibold text-lg line-clamp-1">{p.name}</h3>
+          <p className="text-sm text-gray-600 h-[3rem] overflow-hidden line-clamp-2">
+            {p.description?.slice(0, 100)}
           </p>
-        )}
+
+          {p._isDeal && timeLeft && (
+            <p className="text-xs text-red-600 font-semibold mt-1">
+              Ends in: <span>{timeLeft}</span>
+            </p>
+          )}
+        </div>
 
         {user ? (
-          <div className="mt-2 space-y-2">
+          <div className="mt-3 space-y-2">
             <div className="text-green-600 font-bold">₹{p.dailyPrice}</div>
             {p.offSalePrice && (
               <div className="text-sm text-red-500 line-through">₹{p.offSalePrice}</div>
             )}
             <button
-              onClick={() => addToCart(p)}
+              onClick={(e) => {
+                e.stopPropagation();
+                addToCart(p);
+              }}
               className="mt-2 bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
             >
               Add to Cart
             </button>
           </div>
         ) : (
-          <p className="text-xs mt-2 text-gray-500 italic">Login to see prices & buy</p>
+          <p className="text-xs mt-3 text-gray-500 italic">Login to see prices & buy</p>
         )}
       </div>
     );
@@ -145,11 +146,9 @@ const Home = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Unified Featured + Deals Section */}
         <section className="mb-12">
           <h2 className="text-2xl font-semibold mb-4">Featured & Deals</h2>
 
-          {/* Category filters */}
           <div className="mb-6 flex flex-wrap gap-4">
             {CATEGORIES.map((cat) => (
               <button
@@ -172,14 +171,12 @@ const Home = () => {
             )}
           </div>
 
-          {/* Responsive grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {filtered.map((p) => (
               <ProductCard key={p._id} p={p} />
             ))}
           </div>
 
-          {/* Load More */}
           <div className="mt-8 text-center">
             <button
               onClick={() => navigate('/shop')}
@@ -189,11 +186,8 @@ const Home = () => {
             </button>
           </div>
         </section>
-
-        {/* You can add other sections (brands, blog, quick links) below here if needed */}
       </main>
 
-      {/* WhatsApp Floating Button */}
       <a
         href="https://wa.me/441234567890"
         target="_blank"
