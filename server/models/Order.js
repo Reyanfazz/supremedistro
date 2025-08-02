@@ -1,3 +1,4 @@
+// models/Order.js
 import mongoose from 'mongoose';
 
 const orderSchema = new mongoose.Schema({
@@ -27,6 +28,19 @@ const orderSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 }, {
   timestamps: true,
+});
+
+// ✅ Add virtual for total quantity
+orderSchema.virtual('totalQuantity').get(function () {
+  return this.products.reduce((acc, item) => acc + item.quantity, 0);
+});
+
+// ✅ Ensure shippingAddress is always required for confirmed orders
+orderSchema.pre('validate', function (next) {
+  if (this.isNew && (!this.shippingAddress || !this.shippingAddress.address)) {
+    return next(new Error('Shipping address is required.'));
+  }
+  next();
 });
 
 const Order = mongoose.model('Order', orderSchema);

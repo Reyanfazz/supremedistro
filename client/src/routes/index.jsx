@@ -19,6 +19,9 @@ import OAuthSuccess from './pages/OAuthSuccess';
 import Dashboard from "../pages/Admin/Dashboard";
 import Products from "../pages/Admin/Products";
 import AddProduct from "../pages/Admin/AddProduct";
+import CartDrawer from "../components/CartDrawer";
+import Cart from '../pages/Cart';
+import Checkout from '../pages/Checkout';
 
 const AppRoutes = () => (
   <Routes>
@@ -27,6 +30,9 @@ const AppRoutes = () => (
     <Route path="/admin/dashboard" element={<Dashboard />} />
     <Route path="/oauth-success" element={<OAuthSuccess />} />
     <Route path="/" element={<Home />} />
+    <Route path="/cart" element={<Cart />} />
+<Route path="/checkout" element={<Checkout />} />
+    <Route path="/cartdrawer" element={<CartDrawer/>}/>
     <Route path="/shop" element={<Shop />} />
     <Route path="/product/:id" element={<ProductDetails />} />
     <Route path="/contact" element={<Contact />} />

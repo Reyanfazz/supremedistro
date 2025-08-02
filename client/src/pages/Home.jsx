@@ -3,6 +3,7 @@ import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import CartContext from '../components/context/CartContext';
 import { useNavigate } from 'react-router-dom';
+import { FiShoppingCart } from 'react-icons/fi';
 
 const CATEGORIES = ['Electronics', 'Clothing', 'Books', 'Home', 'Sports'];
 
@@ -66,9 +67,7 @@ const Home = () => {
     const hours = Math.floor(diff / 3600000);
     const minutes = Math.floor((diff % 3600000) / 60000);
     const seconds = Math.floor((diff % 60000) / 1000);
-    return `${hours.toString().padStart(2, '0')}:${minutes
-      .toString()
-      .padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
   const ProductCard = ({ p }) => {
@@ -81,7 +80,7 @@ const Home = () => {
 
     return (
       <div
-        className="border p-4 rounded shadow hover:shadow-lg transition duration-300 relative min-w-[250px] cursor-pointer flex flex-col justify-between h-full"
+        className="border rounded-2xl shadow hover:shadow-lg hover:scale-[1.015] transition duration-300 relative min-w-[250px] cursor-pointer flex flex-col justify-between h-full bg-white"
         onClick={() => navigate(`/productdetails/${p._id}`)}
       >
         <div>
@@ -99,49 +98,59 @@ const Home = () => {
           <img
             src={`${import.meta.env.VITE_API_URL}/uploads/${p.image}`}
             alt={p.name}
-            className="w-full h-40 object-cover mb-3 rounded"
+            className="w-full h-40 object-cover mb-3 rounded-t-2xl"
           />
-          <h3 className="font-semibold text-lg line-clamp-1">{p.name}</h3>
-          <p className="text-sm text-gray-600 h-[3rem] overflow-hidden line-clamp-2">
-            {p.description?.slice(0, 100)}
-          </p>
-
-          {p._isDeal && timeLeft && (
-            <p className="text-xs text-red-600 font-semibold mt-1">
-              Ends in: <span>{timeLeft}</span>
+          <div className="px-3 pb-3">
+            <h3 className="font-semibold text-base line-clamp-1 mb-1">{p.name}</h3>
+            <p className="text-sm text-gray-600 h-[3rem] overflow-hidden line-clamp-2">
+              {p.description?.slice(0, 100)}
             </p>
-          )}
+            {p._isDeal && timeLeft && (
+              <p className="text-xs text-red-600 font-semibold mt-1">
+                Ends in: <span>{timeLeft}</span>
+              </p>
+            )}
+          </div>
         </div>
 
-        {user ? (
-          <div className="mt-3 space-y-2">
-            <div className="text-green-600 font-bold">₹{p.dailyPrice}</div>
-            {p.offSalePrice && (
-              <div className="text-sm text-red-500 line-through">₹{p.offSalePrice}</div>
-            )}
+        {user && (
+          <div className="flex items-center justify-between px-3 pb-3">
+            <div>
+              <div className="text-green-600 font-bold">₹{p.dailyPrice}</div>
+              {p.offSalePrice && (
+                <div className="text-sm text-red-500 line-through">₹{p.offSalePrice}</div>
+              )}
+            </div>
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 addToCart(p);
               }}
-              className="mt-2 bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+              className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full"
+              aria-label="Add to Cart"
             >
-              Add to Cart
+              <FiShoppingCart />
             </button>
           </div>
-        ) : (
-          <p className="text-xs mt-3 text-gray-500 italic">Login to see prices & buy</p>
         )}
       </div>
     );
   };
 
+  const BlogCard = ({ title, summary }) => (
+    <div className="border p-4 rounded-xl shadow hover:shadow-md transition bg-white">
+      <h4 className="font-bold text-lg mb-2">{title}</h4>
+      <p className="text-sm text-gray-700 line-clamp-3">{summary}</p>
+      <button className="mt-2 text-blue-600 hover:underline text-sm">Read More</button>
+    </div>
+  );
+
   return (
     <>
       <header className="bg-gray-100 p-3 pt-20 text-center text-sm">
         <p>
-          Same day dispatch if ordered before 2pm | Free delivery on orders over £50 | Contact us: 01234
-          567890
+          Same day dispatch if ordered before 2pm | Free delivery on orders over £50 | Contact us:
+          01234 567890
         </p>
       </header>
 
@@ -184,6 +193,15 @@ const Home = () => {
             >
               Load More Products
             </button>
+          </div>
+        </section>
+
+        <section className="mt-12">
+          <h2 className="text-2xl font-semibold mb-6">From Our Blog</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            <BlogCard title="Top 10 Fashion Trends in 2025" summary="Explore the hottest fashion styles you can't miss this year. Our team curates the top picks in style and affordability." />
+            <BlogCard title="How to Choose Electronics Online" summary="A guide to buying electronics safely, with tips on comparing products, checking reviews, and finding deals." />
+            <BlogCard title="Make Your Home Stylish and Cozy" summary="Ideas to transform your space into a stylish and comfortable haven without breaking the bank." />
           </div>
         </section>
       </main>

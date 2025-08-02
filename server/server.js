@@ -12,6 +12,7 @@ import protectedRoutes from './routes/protectedRoutes.js';
 import fs from 'fs';
 import path from 'path';
 import adminRoutes from './routes/adminRoutes.js';
+import addressRoutes from './routes/address.js';
 // === Load env ===
 dotenv.config();
 
@@ -56,6 +57,7 @@ app.use('/api/auth', router);
 app.use('/api/protected', protectedRoutes);
 app.use('/api/products', productroutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/address', addressRoutes);
 // === MongoDB connection ===
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
