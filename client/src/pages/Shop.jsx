@@ -5,8 +5,6 @@ import CartContext from '../components/context/CartContext';
 import { FaCartPlus } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 
-const CATEGORIES = ['Electronics', 'Clothing', 'Books', 'Home', 'Sports'];
-
 const Shop = () => {
   const { user } = useContext(AuthContext);
   const { addToCart } = useContext(CartContext);
@@ -15,6 +13,7 @@ const Shop = () => {
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [visibleProducts, setVisibleProducts] = useState([]);
   const [brandsList, setBrandsList] = useState([]);
+  const [categoriesList, setCategoriesList] = useState([]); // 🆕 From DB
 
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState('');
@@ -31,6 +30,19 @@ const Shop = () => {
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  // 🆕 Fetch Categories from DB
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/categories`);
+        setCategoriesList(res.data); // expects array of { _id, name }
+      } catch (err) {
+        console.error('Error fetching categories:', err);
+      }
+    };
+    fetchCategories();
   }, []);
 
   useEffect(() => {
@@ -211,18 +223,23 @@ const Shop = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="border px-3 py-2 rounded w-full text-sm"
           />
+
+          {/* 🆕 Categories from DB */}
           <div className="flex flex-wrap gap-2">
-            {CATEGORIES.map((cat) => (
-              <label key={cat} className="flex items-center gap-1 text-sm">
+            {categoriesList.map((cat) => (
+              <label key={cat._id} className="flex items-center gap-1 text-sm">
                 <input
                   type="checkbox"
-                  checked={selectedCategories.includes(cat)}
-                  onChange={() => toggleSelection(cat, setSelectedCategories, selectedCategories)}
+                  checked={selectedCategories.includes(cat.name)}
+                  onChange={() =>
+                    toggleSelection(cat.name, setSelectedCategories, selectedCategories)
+                  }
                 />
-                {cat}
+                {cat.name}
               </label>
             ))}
           </div>
+
           <div className="flex flex-wrap gap-2">
             {brandsList.map((b) => (
               <label key={b} className="flex items-center gap-1 text-sm">

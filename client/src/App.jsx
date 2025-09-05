@@ -17,6 +17,10 @@ import CartProvider from './components/context/CartProvider'; // ✅ import Cart
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import AddressModal from './components/AddressModal';
+import BrandDetails from './pages/BrandDetails';
+import 'slick-carousel/slick/slick.css';
+import 'slick-carousel/slick/slick-theme.css';
+
 
 function App() {
   const location = useLocation();
@@ -45,6 +49,7 @@ function App() {
         <Route path="/cart" element={<Cart />} />
 <Route path="/checkout" element={<Checkout />} />
 <Route path="/address" element={<AddressModal/>}/>
+<Route path="/brand/:brandName" element={<BrandDetails />} />
         <Route path="/product/:id" element={<ProductDetails />} />
         <Route
           path="/productdetails/:id"

@@ -1,24 +1,25 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CartContext from '../components/context/CartContext';
 
 const Cart = () => {
   const { cart = [], updateQuantity, removeFromCart, clearCart } = useContext(CartContext);
   const navigate = useNavigate();
-
   const [selectedItems, setSelectedItems] = useState([]);
 
-  // Load selected items from localStorage
+  // Load selected items from localStorage or initialize from cart
   useEffect(() => {
     const stored = localStorage.getItem('selectedItems');
     if (stored) {
-      setSelectedItems(JSON.parse(stored));
+      const parsed = JSON.parse(stored);
+      // Only keep items still in cart
+      setSelectedItems(parsed.filter(id => cart.some(item => item._id === id)));
     } else {
-      setSelectedItems(cart.map((item) => item._id));
+      setSelectedItems(cart.map(item => item._id));
     }
   }, [cart]);
 
-  // Persist selected items to localStorage
+  // Persist selected items
   useEffect(() => {
     localStorage.setItem('selectedItems', JSON.stringify(selectedItems));
   }, [selectedItems]);
@@ -26,8 +27,8 @@ const Cart = () => {
   const isSelected = (id) => selectedItems.includes(id);
 
   const toggleSelectItem = (id) => {
-    setSelectedItems((prev) =>
-      prev.includes(id) ? prev.filter((itemId) => itemId !== id) : [...prev, id]
+    setSelectedItems(prev =>
+      prev.includes(id) ? prev.filter(itemId => itemId !== id) : [...prev, id]
     );
   };
 
@@ -35,18 +36,17 @@ const Cart = () => {
     if (selectedItems.length === cart.length) {
       setSelectedItems([]);
     } else {
-      setSelectedItems(cart.map((item) => item._id));
+      setSelectedItems(cart.map(item => item._id));
     }
   };
 
   const handleRemove = (id) => {
     removeFromCart(id);
-    alert('Item removed from cart');
   };
 
   const handleClearCart = () => {
     clearCart();
-    alert('Cart cleared');
+    setSelectedItems([]);
   };
 
   const estimateDelivery = () => {
@@ -55,21 +55,27 @@ const Cart = () => {
     return deliveryDate.toDateString();
   };
 
-  const selectedCartItems = cart.filter((item) => selectedItems.includes(item._id));
-
-  const total = selectedCartItems.reduce(
-    (acc, item) => acc + (item.offSalePrice || item.dailyPrice) * item.quantity,
-    0
+  const selectedCartItems = useMemo(
+    () => cart.filter(item => selectedItems.includes(item._id)),
+    [cart, selectedItems]
   );
 
-  const originalTotal = selectedCartItems.reduce(
-    (acc, item) => acc + item.dailyPrice * item.quantity,
-    0
+  const total = useMemo(
+    () => selectedCartItems.reduce((acc, item) => acc + (item.offSalePrice || item.dailyPrice) * item.quantity, 0),
+    [selectedCartItems]
+  );
+
+  const originalTotal = useMemo(
+    () => selectedCartItems.reduce((acc, item) => acc + item.dailyPrice * item.quantity, 0),
+    [selectedCartItems]
   );
 
   const savings = originalTotal - total;
 
-  const totalQuantity = selectedCartItems.reduce((acc, item) => acc + item.quantity, 0);
+  const totalQuantity = useMemo(
+    () => selectedCartItems.reduce((acc, item) => acc + item.quantity, 0),
+    [selectedCartItems]
+  );
 
   const proceedToCheckout = () => {
     if (selectedCartItems.length === 0) {
@@ -94,11 +100,12 @@ const Cart = () => {
                 type="checkbox"
                 checked={selectedItems.length === cart.length}
                 onChange={toggleSelectAll}
+                disabled={cart.length === 0}
               />
               <span className="text-sm font-medium">Select All</span>
             </div>
 
-            {cart.map((item) => (
+            {cart.map(item => (
               <div
                 key={item._id}
                 className="flex flex-col sm:flex-row border rounded-lg p-4 shadow-sm items-start gap-4"
@@ -116,17 +123,13 @@ const Cart = () => {
                 <div className="flex-1 space-y-2">
                   <h2 className="text-lg font-semibold">{item.name}</h2>
                   <p className="text-sm text-gray-600">
-                    Price:{' '}
-                    <span className="text-green-700 font-medium">
-                      ₹{item.offSalePrice || item.dailyPrice}
-                    </span>
+                    Price: <span className="text-green-700 font-medium">₹{item.offSalePrice || item.dailyPrice}</span>
                   </p>
                   {item.offSalePrice && (
                     <p className="text-sm text-gray-500 line-through">₹{item.dailyPrice}</p>
                   )}
                   <p className="text-sm text-gray-500">
-                    Estimated Delivery:{' '}
-                    <span className="text-black">{estimateDelivery()}</span>
+                    Estimated Delivery: <span className="text-black">{estimateDelivery()}</span>
                   </p>
                   <div className="flex items-center gap-2">
                     <span className="text-sm">Qty:</span>
@@ -152,7 +155,7 @@ const Cart = () => {
                     </button>
                   </div>
                   <div className="text-right font-bold text-green-700">
-                    ₹{(item.offSalePrice || item.dailyPrice) * item.quantity}
+                    ₹{((item.offSalePrice || item.dailyPrice) * item.quantity).toFixed(2)}
                   </div>
                 </div>
               </div>

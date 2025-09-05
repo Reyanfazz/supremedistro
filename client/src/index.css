@@ -5,16 +5,18 @@
 /* styles.css */
 .Toastify__toast--success {
   background-color: #0c0c0c;
-  color: white;
+  color: rgb(2, 2, 2);
 }
 .Toastify__toast--warn {
   background-color: #ff9800;
-  color: white;
+  color: rgb(0, 0, 0);
 }
 .Toastify__toast--error {
   background-color: #f44336;
-  color: white;
+  color: rgb(5, 5, 5);
 }
+
+
 
 @layer utilities {
   .animate-fadeIn {

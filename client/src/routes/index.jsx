@@ -22,6 +22,7 @@ import AddProduct from "../pages/Admin/AddProduct";
 import CartDrawer from "../components/CartDrawer";
 import Cart from '../pages/Cart';
 import Checkout from '../pages/Checkout';
+import BrandDetails from "./pages/BrandDetails";
 
 const AppRoutes = () => (
   <Routes>
@@ -29,6 +30,7 @@ const AppRoutes = () => (
     <Route path="/admin/product" element={<Products/>}/>
     <Route path="/admin/dashboard" element={<Dashboard />} />
     <Route path="/oauth-success" element={<OAuthSuccess />} />
+    <Route path="/brand/:brandName" element={<BrandDetails />} />
     <Route path="/" element={<Home />} />
     <Route path="/cart" element={<Cart />} />
 <Route path="/checkout" element={<Checkout />} />

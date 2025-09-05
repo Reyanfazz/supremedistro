@@ -1,28 +1,28 @@
 // server/models/Product.js
 import mongoose from 'mongoose';
 
-
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String, required: true },
   category: { type: String, required: true },
 
   brand: { type: String, required: true },
-  brandLogo: { type: String }, // ✅ Path to logo image
-  brandDescription: { type: String }, // ✅ Description about the brand
+  brandLogo: { type: String },
+  brandDescription: { type: String },
 
   dailyPrice: { type: Number, required: true },
   offSalePrice: { type: Number },
-  stock: { type: Number, default: 0 }, // ✅ Number of items in stock
+  stock: { type: Number, default: 0 },
 
   isFeatured: { type: Boolean, default: false },
   isDealOfDay: { type: Boolean, default: false },
   expiryDate: { type: Date, default: null },
 
-  image: { type: String }, // ✅ Main image
-  images: [{ type: String }], // ✅ Additional gallery images
-
+  image: { type: String },
+  images: [{ type: String }],
 }, { timestamps: true });
 
-const Product = mongoose.model('Product', productSchema);
+// ✅ Fix OverwriteModelError by reusing existing model if loaded
+const Product = mongoose.models.Product || mongoose.model('Product', productSchema);
+
 export default Product;

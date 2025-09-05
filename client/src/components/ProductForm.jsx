@@ -1,13 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-
-const CATEGORIES = ['Electronics', 'Clothing', 'Books', 'Home', 'Sports'];
 
 const ProductForm = ({ product, onSuccess }) => {
   const apiUrl = import.meta.env.VITE_API_URL;
   const navigate = useNavigate();
 
+  // Form state
   const [formData, setFormData] = useState({
     name: product?.name || '',
     description: product?.description || '',
@@ -20,20 +19,71 @@ const ProductForm = ({ product, onSuccess }) => {
     isFeatured: product?.isFeatured || false,
     isDealOfDay: product?.isDealOfDay || false,
     expiryDate: product?.expiryDate ? product.expiryDate.substring(0, 16) : '',
-    image: null, // new upload file
-    brandLogo: null, // new upload file
-    images: [], // multiple new gallery files
+    image: null,
+    brandLogo: null,
+    images: [],
   });
 
+  // Categories state
+  const [categories, setCategories] = useState([]);
+  const [newCategory, setNewCategory] = useState('');
+
+  // Errors and loading
   const [errors, setErrors] = useState({});
-  const [imagePreview, setImagePreview] = useState(product?.image ? `${apiUrl}/uploads/${product.image}` : '');
+  const [loading, setLoading] = useState(false);
+
+  // Image previews
+  const [imagePreview, setImagePreview] = useState(
+    product?.image ? `${apiUrl}/uploads/${product.image}` : ''
+  );
   const [brandLogoPreview, setBrandLogoPreview] = useState(
     product?.brandLogo ? `${apiUrl}/uploads/${product.brandLogo}` : ''
   );
-  const [galleryPreviews, setGalleryPreviews] = useState(product?.images?.map((img) => `${apiUrl}/uploads/${img}`) || []);
-  const [loading, setLoading] = useState(false);
+  const [galleryPreviews, setGalleryPreviews] = useState(
+    product?.images?.map((img) => `${apiUrl}/uploads/${img}`) || []
+  );
 
-  // Validation
+  // Fetch categories from API on mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await axios.get(`${apiUrl}/api/categories`);
+        setCategories(res.data); // Assuming res.data is array of { _id, name }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      }
+    };
+    fetchCategories();
+  }, [apiUrl]);
+
+  // Add new category handler
+  const handleAddCategory = async () => {
+    const trimmed = newCategory.trim();
+    if (!trimmed) return;
+
+    // Check if category already exists by name (case-insensitive)
+    if (categories.some((cat) => cat.name.toLowerCase() === trimmed.toLowerCase())) {
+      alert('Category already exists.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await axios.post(`${apiUrl}/api/categories`, { name: trimmed });
+      // Update categories list
+      setCategories((prev) => [...prev, res.data]);
+      // Select new category
+      setFormData((f) => ({ ...f, category: res.data.name }));
+      setNewCategory('');
+    } catch (error) {
+      console.error('Failed to add category:', error);
+      alert('Error adding category.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Validation function (same as before)
   const validate = () => {
     const errs = {};
     if (!formData.name.trim()) errs.name = 'Name is required.';
@@ -44,7 +94,6 @@ const ProductForm = ({ product, onSuccess }) => {
     if (formData.offSalePrice !== '' && formData.offSalePrice < 0)
       errs.offSalePrice = 'Off sale price must be 0 or greater.';
     if (formData.stock < 0) errs.stock = 'Stock cannot be negative.';
-
     if (formData.isDealOfDay) {
       if (!formData.expiryDate) {
         errs.expiryDate = 'Expiry Date and Time is required for Deal of the Day.';
@@ -56,12 +105,11 @@ const ProductForm = ({ product, onSuccess }) => {
         }
       }
     }
-
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
-  // Handle form changes
+  // Handle form input changes
   const handleChange = (e) => {
     const { name, value, type, checked, files } = e.target;
 
@@ -75,7 +123,6 @@ const ProductForm = ({ product, onSuccess }) => {
         setFormData((f) => ({ ...f, brandLogo: file }));
         setBrandLogoPreview(file ? URL.createObjectURL(file) : '');
       } else if (name === 'images') {
-        // Multiple gallery images
         const fileArray = Array.from(files);
         setFormData((f) => ({ ...f, images: fileArray }));
         setGalleryPreviews(fileArray.map((file) => URL.createObjectURL(file)));
@@ -93,7 +140,7 @@ const ProductForm = ({ product, onSuccess }) => {
     }
   };
 
-  // Submit handler
+  // Submit handler (same as before)
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
@@ -101,7 +148,6 @@ const ProductForm = ({ product, onSuccess }) => {
     setLoading(true);
     const payload = new FormData();
 
-    // Append text and number fields
     const fieldsToAppend = [
       'name',
       'description',
@@ -113,7 +159,6 @@ const ProductForm = ({ product, onSuccess }) => {
       'stock',
       'expiryDate',
     ];
-
     fieldsToAppend.forEach((field) => {
       if (formData[field] !== null && formData[field] !== '') {
         if (field === 'expiryDate') {
@@ -124,21 +169,13 @@ const ProductForm = ({ product, onSuccess }) => {
       }
     });
 
-    // Append booleans as strings
     payload.append('isFeatured', formData.isFeatured ? 'true' : 'false');
     payload.append('isDealOfDay', formData.isDealOfDay ? 'true' : 'false');
 
-    // Append files if selected
-    if (formData.image) {
-      payload.append('image', formData.image);
-    }
-    if (formData.brandLogo) {
-      payload.append('brandLogo', formData.brandLogo);
-    }
+    if (formData.image) payload.append('image', formData.image);
+    if (formData.brandLogo) payload.append('brandLogo', formData.brandLogo);
     if (formData.images && formData.images.length > 0) {
-      formData.images.forEach((file) => {
-        payload.append('images', file);
-      });
+      formData.images.forEach((file) => payload.append('images', file));
     }
 
     try {
@@ -158,11 +195,8 @@ const ProductForm = ({ product, onSuccess }) => {
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="max-w-xl mx-auto bg-white p-8 rounded-lg shadow-md space-y-6"
-    >
-        {/* Main Product Image */}
+    <form onSubmit={handleSubmit} className="max-w-xl mx-auto bg-white p-8 rounded-lg shadow-md space-y-6">
+      {/* Product Image */}
       <div>
         <label htmlFor="image" className="block mb-1 font-semibold text-gray-700">
           Product Image
@@ -177,13 +211,10 @@ const ProductForm = ({ product, onSuccess }) => {
           className="w-full border rounded-md p-2 cursor-pointer text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500"
         />
         {imagePreview && (
-          <img
-            src={imagePreview}
-            alt="Product Preview"
-            className="mt-3 max-h-40 rounded-md object-contain border"
-          />
+          <img src={imagePreview} alt="Product Preview" className="mt-3 max-h-40 rounded-md object-contain border" />
         )}
       </div>
+
       {/* Product Name */}
       <div>
         <label htmlFor="name" className="block mb-1 font-semibold text-gray-700">
@@ -224,30 +255,47 @@ const ProductForm = ({ product, onSuccess }) => {
         {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
       </div>
 
-      {/* Category */}
+      {/* Category Section with Add Option */}
       <div>
-        <label htmlFor="category" className="block mb-1 font-semibold text-gray-700">
+        <label className="block mb-1 font-semibold text-gray-700">
           Category <span className="text-red-500">*</span>
         </label>
-        <select
-          id="category"
-          name="category"
-          value={formData.category}
-          onChange={handleChange}
-          disabled={loading}
-          className={`w-full px-4 py-2 border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-green-500 ${
-            errors.category ? 'border-red-500' : ''
-          }`}
-        >
-          <option value="" disabled>
-            Select category
-          </option>
-          {CATEGORIES.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
+        <div className="flex gap-2 items-center">
+          <select
+            name="category"
+            value={formData.category}
+            onChange={handleChange}
+            disabled={loading}
+            className={`flex-1 px-4 py-2 border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-green-500 ${
+              errors.category ? 'border-red-500' : ''
+            }`}
+          >
+            <option value="" disabled>
+              Select category
             </option>
-          ))}
-        </select>
+            {categories.map((cat) => (
+              <option key={cat._id} value={cat.name}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+          <input
+            type="text"
+            placeholder="New Category"
+            value={newCategory}
+            onChange={(e) => setNewCategory(e.target.value)}
+            disabled={loading}
+            className="border rounded-md px-3 py-2"
+          />
+          <button
+            type="button"
+            onClick={handleAddCategory}
+            disabled={loading || !newCategory.trim()}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+          >
+            Add
+          </button>
+        </div>
         {errors.category && <p className="text-red-500 text-sm mt-1">{errors.category}</p>}
       </div>
 
@@ -288,7 +336,7 @@ const ProductForm = ({ product, onSuccess }) => {
         />
       </div>
 
-       {/* Brand Logo Image */}
+      {/* Brand Logo Image */}
       <div>
         <label htmlFor="brandLogo" className="block mb-1 font-semibold text-gray-700">
           Brand Logo
@@ -420,10 +468,6 @@ const ProductForm = ({ product, onSuccess }) => {
         </div>
       )}
 
-      
-
-     
-
       {/* Gallery Images (multiple) */}
       <div>
         <label htmlFor="images" className="block mb-1 font-semibold text-gray-700">
@@ -439,7 +483,7 @@ const ProductForm = ({ product, onSuccess }) => {
           disabled={loading}
           className="w-full border rounded-md p-2 cursor-pointer text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500"
         />
-        <div className="mt-3 flex flex-wrap gap-3 max-h-40 overflow-auto  rounded-md p-2">
+        <div className="mt-3 flex flex-wrap gap-3 max-h-40 overflow-auto rounded-md p-2">
           {galleryPreviews.map((src, i) => (
             <img
               key={i}
