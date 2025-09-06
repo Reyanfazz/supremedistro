@@ -1,19 +1,19 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
-import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
+import { PayPalScriptProvider, PayPalButtons, FUNDING } from "@paypal/react-paypal-js";
 import CheckoutForm from "../components/CheckoutForm";
 import axios from "axios";
 
+// Load Stripe & PayPal keys from .env
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+const paypalClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID;
 
 const Checkout = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const items = useMemo(() => location.state?.items || [], [location.state]);
 
-  // ✅ Load saved address from localStorage
   const [shippingAddress, setShippingAddress] = useState(() => {
     const saved = localStorage.getItem("shippingAddress");
     return saved
@@ -30,6 +30,7 @@ const Checkout = () => {
   });
 
   const [saveAddress, setSaveAddress] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState("stripe");
 
   const handleAddressChange = (e) => {
     setShippingAddress({ ...shippingAddress, [e.target.name]: e.target.value });
@@ -41,7 +42,6 @@ const Checkout = () => {
     }
   }, [saveAddress, shippingAddress]);
 
-  // ✅ Subtotal
   const subtotal = useMemo(() => {
     return items.reduce(
       (acc, i) =>
@@ -55,7 +55,6 @@ const Checkout = () => {
     );
   }, [items]);
 
-  // ✅ Savings (10% if marked deal of the day)
   const savings = useMemo(() => {
     return items
       .filter((i) => i.dealOfTheDay || i.product?.isDealOfDay)
@@ -72,18 +71,14 @@ const Checkout = () => {
       );
   }, [items]);
 
-  // ✅ 20% Tax
   const tax = subtotal * 0.2;
-
-  // ✅ Total = subtotal - savings + tax
   const totalAmount = subtotal + tax - savings;
 
   if (!items.length) {
     return <p className="text-center mt-10">No items to checkout</p>;
   }
 
-  // ✅ Save order after PayPal payment
-  const handlePayPalSuccess = async (details) => {
+  const handlePayPalSuccess = async (details, method) => {
     try {
       await axios.post("/api/orders", {
         products: items.map((i) => ({
@@ -92,11 +87,11 @@ const Checkout = () => {
         })),
         shippingAddress,
         totalAmount,
-        paymentMethod: "PayPal",
+        paymentMethod: method,
       });
 
-      alert(`Payment successful! Transaction ID: ${details.id}`);
-      navigate("/orders");
+      alert(`Payment successful with ${method}! Transaction ID: ${details.id}`);
+      window.location.href = "/";
     } catch (err) {
       console.error("Order saving failed:", err);
       alert("Payment done, but order saving failed.");
@@ -104,8 +99,8 @@ const Checkout = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto mt-10 px-4 py-8 flex flex-col lg:flex-row gap-8 bg-white">
-      {/* Left Side: Address + Order Summary */}
+    <div className="max-w-6xl mx-auto mt-10 px-4 py-8 flex flex-col lg:flex-row gap-8">
+      {/* Left Side */}
       <div className="flex-1 space-y-6">
         {/* Shipping Address */}
         <div className="bg-white border rounded-lg p-6 shadow-md">
@@ -155,21 +150,16 @@ const Checkout = () => {
               key={item._id}
               className="flex items-center justify-between mb-3 border-b pb-2"
             >
-              {/* Product Image */}
               <img
                 src={`${import.meta.env.VITE_API_URL}/uploads/${item.image}`}
                 alt={item.name}
                 className="w-16 h-16 object-cover rounded mr-3 border"
               />
-
-              {/* Product Details */}
               <div className="flex-1">
                 <p className="font-medium">
                   {item.name} × {item.quantity}
                 </p>
               </div>
-
-              {/* Price */}
               <span className="font-semibold">
                 £{((item.offSalePrice || item.dailyPrice) * item.quantity).toFixed(2)}
               </span>
@@ -177,7 +167,6 @@ const Checkout = () => {
           ))}
 
           <hr className="my-2" />
-
           <div className="flex justify-between">
             <span>Subtotal</span>
             <span>£{subtotal.toFixed(2)}</span>
@@ -207,47 +196,133 @@ const Checkout = () => {
       <div className="w-full lg:w-1/3 bg-white border rounded-lg p-6 shadow-md">
         <h2 className="text-xl font-semibold mb-4">Payment</h2>
 
-        {/* Stripe Payment */}
-        <Elements stripe={stripePromise}>
-          <CheckoutForm
-            totalAmount={totalAmount}
-            items={items}
-            shippingAddress={shippingAddress}
-            navigate={navigate}
-          />
-        </Elements>
+        {/* 🔥 Tab Navigation */}
+        <div className="flex border-b mb-4">
+          <button
+            onClick={() => setSelectedPayment("stripe")}
+            className={`flex-1 py-2 text-center font-medium transition ${
+              selectedPayment === "stripe"
+                ? "border-b-4 border-yellow-400 text-yellow-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Card
+          </button>
+          <button
+            onClick={() => setSelectedPayment("paypal")}
+            className={`flex-1 py-2 text-center font-medium transition ${
+              selectedPayment === "paypal"
+                ? "border-b-4 border-yellow-400 text-yellow-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            PayPal & Wallets
+          </button>
+        </div>
 
-        <hr className="my-6" />
+        {/* Stripe */}
+        {selectedPayment === "stripe" && (
+          <Elements stripe={stripePromise}>
+            <CheckoutForm
+              totalAmount={totalAmount}
+              items={items}
+              shippingAddress={shippingAddress}
+            />
+          </Elements>
+        )}
 
-        {/* PayPal Payment */}
-        <PayPalScriptProvider
-          options={{ "client-id": import.meta.env.VITE_PAYPAL_CLIENT_ID, currency: "GBP" }}
-        >
-          <PayPalButtons
-            style={{ layout: "vertical" }}
-            createOrder={(data, actions) => {
-              return actions.order.create({
-                purchase_units: [
-                  {
-                    amount: {
-                      value: totalAmount.toFixed(2),
-                      currency_code: "GBP",
-                    },
-                  },
-                ],
-              });
-            }}
-            onApprove={(data, actions) => {
-              return actions.order.capture().then((details) => {
-                handlePayPalSuccess(details);
-              });
-            }}
-            onError={(err) => {
-              console.error("PayPal error:", err);
-              alert("PayPal payment failed.");
-            }}
-          />
-        </PayPalScriptProvider>
+        {/* PayPal + Wallets */}
+        {selectedPayment === "paypal" && (
+          <PayPalScriptProvider
+            options={{ "client-id": paypalClientId, currency: "GBP" }}
+          >
+            <div className="space-y-4">
+              {/* PayPal Option */}
+              <div className="flex items-center gap-3 p-3 border rounded-lg hover:shadow-md cursor-pointer transition bg-gray-50">
+                <img src="/icons/paypal.png" alt="PayPal" className="w-10 h-10" />
+                <div className="flex-1">
+                  <span className="font-medium">PayPal</span>
+                  <div className="mt-2">
+                    <PayPalButtons
+                      style={{ layout: "horizontal" }}
+                      fundingSource={FUNDING.PAYPAL}
+                      createOrder={(data, actions) =>
+                        actions.order.create({
+                          purchase_units: [
+                            {
+                              amount: { value: totalAmount.toFixed(2), currency_code: "GBP" },
+                            },
+                          ],
+                        })
+                      }
+                      onApprove={(data, actions) =>
+                        actions.order.capture().then((details) => {
+                          handlePayPalSuccess(details, "PayPal");
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Apple Pay Option */}
+              <div className="flex items-center gap-3 p-3 border rounded-lg hover:shadow-md cursor-pointer transition bg-gray-50">
+                <img src="/icons/applepay.png" alt="Apple Pay" className="w-10 h-10" />
+                <div className="flex-1">
+                  <span className="font-medium">Apple Pay</span>
+                  <div className="mt-2">
+                    <PayPalButtons
+                      style={{ layout: "horizontal" }}
+                      fundingSource={FUNDING.APPLEPAY}
+                      createOrder={(data, actions) =>
+                        actions.order.create({
+                          purchase_units: [
+                            {
+                              amount: { value: totalAmount.toFixed(2), currency_code: "GBP" },
+                            },
+                          ],
+                        })
+                      }
+                      onApprove={(data, actions) =>
+                        actions.order.capture().then((details) => {
+                          handlePayPalSuccess(details, "Apple Pay");
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Google Pay Option */}
+              <div className="flex items-center gap-3 p-3 border rounded-lg hover:shadow-md cursor-pointer transition bg-gray-50">
+                <img src="/icons/googlepay.png" alt="Google Pay" className="w-10 h-10" />
+                <div className="flex-1">
+                  <span className="font-medium">Google Pay</span>
+                  <div className="mt-2">
+                    <PayPalButtons
+                      style={{ layout: "horizontal" }}
+                      fundingSource={FUNDING.GOOGLEPAY}
+                      createOrder={(data, actions) =>
+                        actions.order.create({
+                          purchase_units: [
+                            {
+                              amount: { value: totalAmount.toFixed(2), currency_code: "GBP" },
+                            },
+                          ],
+                        })
+                      }
+                      onApprove={(data, actions) =>
+                        actions.order.capture().then((details) => {
+                          handlePayPalSuccess(details, "Google Pay");
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </PayPalScriptProvider>
+        )}
       </div>
     </div>
   );
