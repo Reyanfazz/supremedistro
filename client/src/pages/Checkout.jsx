@@ -7,7 +7,7 @@ import CheckoutForm from "../components/CheckoutForm";
 import axios from "axios";
 
 // Load Stripe & PayPal keys from .env
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+const stripePromise = loadStripe(import.meta.env.STRIPE_SECRET_KEY);
 const paypalClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID;
 
 const Checkout = () => {
