@@ -1,18 +1,16 @@
-// src/pages/Checkout.jsx
 import React, { useMemo, useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import CheckoutForm from "../components/CheckoutForm";
 import axios from "axios";
 
-const stripePromise = loadStripe(
-  "pk_test_51RyYZlDRHCTuYejoiGEiQOXvzlsamfcmj17tK4xi8xMzFlZirhgdtF0F3aYD7HfPTNfGZHfhvVxjM1jzsyv2Y3eg00QFfWAuEQ"
-);
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
 const Checkout = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const items = useMemo(() => location.state?.items || [], [location.state]);
 
   // ✅ Load saved address from localStorage
@@ -57,7 +55,7 @@ const Checkout = () => {
     );
   }, [items]);
 
-  // ✅ Savings only if product has dealOfTheDay
+  // ✅ Savings (10% if marked deal of the day)
   const savings = useMemo(() => {
     return items
       .filter((i) => i.dealOfTheDay || i.product?.isDealOfDay)
@@ -98,7 +96,7 @@ const Checkout = () => {
       });
 
       alert(`Payment successful! Transaction ID: ${details.id}`);
-      window.location.href = "/";
+      navigate("/orders");
     } catch (err) {
       console.error("Order saving failed:", err);
       alert("Payment done, but order saving failed.");
@@ -106,7 +104,7 @@ const Checkout = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto mt-10 px-4 py-8 flex flex-col lg:flex-row gap-8">
+    <div className="max-w-6xl mx-auto mt-10 px-4 py-8 flex flex-col lg:flex-row gap-8 bg-white">
       {/* Left Side: Address + Order Summary */}
       <div className="flex-1 space-y-6">
         {/* Shipping Address */}
@@ -152,29 +150,31 @@ const Checkout = () => {
         <div className="bg-white border rounded-lg p-6 shadow-md">
           <h1 className="text-2xl font-semibold mb-4">Order Summary</h1>
 
-          {items.map(item => (
-  <div
-    key={item._id}
-    className="flex items-center justify-between mb-3 border-b pb-2"
-  >
-    {/* Product Image */}
-    <img
-      src={`${import.meta.env.VITE_API_URL}/uploads/${item.image}`}
-      alt={item.name}
-      className="w-16 h-16 object-cover rounded mr-3 border"
-    />
+          {items.map((item) => (
+            <div
+              key={item._id}
+              className="flex items-center justify-between mb-3 border-b pb-2"
+            >
+              {/* Product Image */}
+              <img
+                src={`${import.meta.env.VITE_API_URL}/uploads/${item.image}`}
+                alt={item.name}
+                className="w-16 h-16 object-cover rounded mr-3 border"
+              />
 
-    {/* Product Details */}
-    <div className="flex-1">
-      <p className="font-medium">{item.name} × {item.quantity}</p>
-    </div>
+              {/* Product Details */}
+              <div className="flex-1">
+                <p className="font-medium">
+                  {item.name} × {item.quantity}
+                </p>
+              </div>
 
-    {/* Price */}
-    <span className="font-semibold">
-      ₹{((item.offSalePrice || item.dailyPrice) * item.quantity).toFixed(2)}
-    </span>
-  </div>
-))}
+              {/* Price */}
+              <span className="font-semibold">
+                £{((item.offSalePrice || item.dailyPrice) * item.quantity).toFixed(2)}
+              </span>
+            </div>
+          ))}
 
           <hr className="my-2" />
 
@@ -213,6 +213,7 @@ const Checkout = () => {
             totalAmount={totalAmount}
             items={items}
             shippingAddress={shippingAddress}
+            navigate={navigate}
           />
         </Elements>
 
@@ -220,7 +221,7 @@ const Checkout = () => {
 
         {/* PayPal Payment */}
         <PayPalScriptProvider
-          options={{ "client-id": "YOUR_PAYPAL_CLIENT_ID", currency: "GBP" }}
+          options={{ "client-id": import.meta.env.VITE_PAYPAL_CLIENT_ID, currency: "GBP" }}
         >
           <PayPalButtons
             style={{ layout: "vertical" }}

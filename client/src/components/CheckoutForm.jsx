@@ -1,60 +1,70 @@
-// components/CheckoutForm.jsx
-import React, { useState, useEffect } from 'react';
-import { useStripe, useElements, CardElement, PaymentRequestButtonElement } from '@stripe/react-stripe-js';
-import axios from 'axios';
+import React, { useState, useEffect } from "react";
+import {
+  useStripe,
+  useElements,
+  CardElement,
+  PaymentRequestButtonElement,
+} from "@stripe/react-stripe-js";
+import axios from "axios";
 
 const CheckoutForm = ({ totalAmount, items, shippingAddress, navigate }) => {
   const stripe = useStripe();
   const elements = useElements();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [paymentRequest, setPaymentRequest] = useState(null);
 
-  // Initialize Google / Apple Pay
+  // ✅ Google / Apple Pay setup
   useEffect(() => {
     if (!stripe) return;
 
     const pr = stripe.paymentRequest({
-      country: 'GB',
-      currency: 'gbp',
-      total: { label: 'Total', amount: Math.round(totalAmount * 100) },
+      country: "GB",
+      currency: "gbp",
+      total: { label: "Total", amount: Math.round(totalAmount * 100) },
       requestPayerName: true,
       requestPayerEmail: true,
     });
 
-    pr.canMakePayment().then(result => {
+    pr.canMakePayment().then((result) => {
       if (result) setPaymentRequest(pr);
     });
 
-    pr.on('paymentmethod', async (ev) => {
+    pr.on("paymentmethod", async (ev) => {
       setLoading(true);
       try {
-        const { data } = await axios.post('/create-payment-intent', { amount: totalAmount * 100 });
+        const { data } = await axios.post("/create-payment-intent", {
+          amount: totalAmount * 100,
+        });
         const clientSecret = data.clientSecret;
 
-        const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-          payment_method: ev.paymentMethod.id,
-        });
-
-        if (confirmError) {
-          ev.complete('fail');
-          setError(confirmError.message);
-        } else if (paymentIntent.status === 'succeeded') {
-          ev.complete('success');
-
-          // ✅ Save order to DB
-          await axios.post('/api/orders', {
-            products: items.map(i => ({ product: i._id, quantity: i.quantity })),
-            totalAmount,
-            shippingAddress,
-            paymentMethod: 'card',
+        const { error: confirmError, paymentIntent } =
+          await stripe.confirmCardPayment(clientSecret, {
+            payment_method: ev.paymentMethod.id,
           });
 
-          alert('Payment successful!');
-          navigate('/orders'); // redirect to orders page
+        if (confirmError) {
+          ev.complete("fail");
+          setError(confirmError.message);
+        } else if (paymentIntent.status === "succeeded") {
+          ev.complete("success");
+
+          // ✅ Save order to DB
+          await axios.post("/api/orders", {
+            products: items.map((i) => ({
+              product: i._id,
+              quantity: i.quantity,
+            })),
+            totalAmount,
+            shippingAddress,
+            paymentMethod: "Apple/Google Pay",
+          });
+
+          alert("Payment successful!");
+          navigate("/orders");
         }
       } catch (err) {
-        ev.complete('fail');
+        ev.complete("fail");
         setError(err.response?.data?.message || err.message);
       }
       setLoading(false);
@@ -64,10 +74,12 @@ const CheckoutForm = ({ totalAmount, items, shippingAddress, navigate }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
-      const { data } = await axios.post('/create-payment-intent', { amount: totalAmount * 100 });
+      const { data } = await axios.post("/create-payment-intent", {
+        amount: totalAmount * 100,
+      });
       const clientSecret = data.clientSecret;
 
       const result = await stripe.confirmCardPayment(clientSecret, {
@@ -76,17 +88,20 @@ const CheckoutForm = ({ totalAmount, items, shippingAddress, navigate }) => {
 
       if (result.error) {
         setError(result.error.message);
-      } else if (result.paymentIntent.status === 'succeeded') {
+      } else if (result.paymentIntent.status === "succeeded") {
         // ✅ Save order to DB
-        await axios.post('/api/orders', {
-          products: items.map(i => ({ product: i._id, quantity: i.quantity })),
+        await axios.post("/api/orders", {
+          products: items.map((i) => ({
+            product: i._id,
+            quantity: i.quantity,
+          })),
           totalAmount,
           shippingAddress,
-          paymentMethod: 'card',
+          paymentMethod: "Card",
         });
 
-        alert('Payment successful!');
-        navigate('/orders');
+        alert("Payment successful!");
+        navigate("/orders");
       }
     } catch (err) {
       setError(err.response?.data?.message || err.message);
@@ -105,7 +120,7 @@ const CheckoutForm = ({ totalAmount, items, shippingAddress, navigate }) => {
           disabled={!stripe || loading}
           className="w-full bg-yellow-400 text-black py-2 rounded hover:bg-yellow-500"
         >
-          {loading ? 'Processing...' : `Pay £${totalAmount.toFixed(2)}`}
+          {loading ? "Processing..." : `Pay £${totalAmount.toFixed(2)}`}
         </button>
       </form>
 
