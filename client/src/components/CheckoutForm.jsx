@@ -23,7 +23,6 @@ const CheckoutForm = ({ totalAmount, items, shippingAddress, navigate }) => {
   const stripe = useStripe();
   const elements = useElements();
   const [paymentRequest, setPaymentRequest] = useState(null);
-  const [walletSupported, setWalletSupported] = useState(false);
 
   useEffect(() => {
     if (!stripe) return;
@@ -33,17 +32,12 @@ const CheckoutForm = ({ totalAmount, items, shippingAddress, navigate }) => {
       currency: "gbp",
       total: { label: "SupremeDistro", amount: Math.round(totalAmount * 100) },
       requestPayerName: true,
-      requestPayerEmail: true, // user will enter email in wallet popup
+      requestPayerEmail: true,
     });
 
-    // ✅ Check if wallet is supported
+    // Only set if wallet is supported
     pr.canMakePayment().then((result) => {
-      if (result) {
-        setPaymentRequest(pr);
-        setWalletSupported(true);
-      } else {
-        setWalletSupported(false);
-      }
+      if (result) setPaymentRequest(pr);
     });
   }, [stripe, totalAmount]);
 
@@ -52,7 +46,6 @@ const CheckoutForm = ({ totalAmount, items, shippingAddress, navigate }) => {
     if (!stripe || !elements) return;
 
     try {
-      // Limit metadata length for Stripe (max 500 chars)
       const metadataItems = items.map((i) => i.name).join(",").slice(0, 500);
 
       const { data } = await axios.post(
@@ -69,6 +62,8 @@ const CheckoutForm = ({ totalAmount, items, shippingAddress, navigate }) => {
             phone: shippingAddress.phone,
           },
         },
+        // ✅ Enable Stripe Link auto-fill
+        link: { enabled: true },
       });
 
       if (result.error) {
@@ -100,9 +95,9 @@ const CheckoutForm = ({ totalAmount, items, shippingAddress, navigate }) => {
       </div>
 
       {/* Wallet Payment */}
-      <div>
-        <h3 className="font-semibold mb-2">Pay with Wallet</h3>
-        {walletSupported && paymentRequest ? (
+      {paymentRequest && (
+        <div>
+          <h3 className="font-semibold mb-2">Pay with Wallet</h3>
           <div className="border rounded-lg p-3 shadow-sm flex justify-center">
             <PaymentRequestButtonElement
               options={{
@@ -117,12 +112,8 @@ const CheckoutForm = ({ totalAmount, items, shippingAddress, navigate }) => {
               }}
             />
           </div>
-        ) : (
-          <p className="text-sm text-gray-500">
-            Wallet payments (Apple Pay / Google Pay / Stripe Link) are not supported on this device or browser. Please use card payment.
-          </p>
-        )}
-      </div>
+        </div>
+      )}
     </form>
   );
 };
