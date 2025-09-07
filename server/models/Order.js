@@ -1,4 +1,3 @@
-// models/Order.js
 import mongoose from 'mongoose';
 
 const orderSchema = new mongoose.Schema({
@@ -12,37 +11,31 @@ const orderSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: ['pending', 'packed', 'shipped', 'out-for-delivery', 'delivered'],
-    default: 'pending',
+    default: 'pending', // fulfillment status
   },
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'succeeded', 'failed'],
+    default: 'pending', // payment status
+  },
+  paymentIntentId: { type: String }, // Stripe PaymentIntent ID
   shippingAddress: {
-    name: String,
-    email: String,
-    phone: String,
-    address: String,
-    city: String,
-    postalCode: String,
-    country: String,
+    name: { type: String, required: true },
+    email: { type: String, required: true },
+    phone: { type: String, required: true },
+    address: { type: String, required: true },
+    city: { type: String, required: true },
+    postalCode: { type: String, required: true },
+    country: { type: String, required: true },
   },
-  totalAmount: Number,
-  paymentMethod: String,
-  createdAt: { type: Date, default: Date.now },
-}, {
-  timestamps: true,
-});
+  totalAmount: { type: Number, required: true },
+  paymentMethod: { type: String, required: true },
+}, { timestamps: true });
 
-// ✅ Add virtual for total quantity
+// Virtual for total quantity
 orderSchema.virtual('totalQuantity').get(function () {
   return this.products.reduce((acc, item) => acc + item.quantity, 0);
 });
 
-// ✅ Ensure shippingAddress is always required for confirmed orders
-orderSchema.pre('validate', function (next) {
-  if (this.isNew && (!this.shippingAddress || !this.shippingAddress.address)) {
-    return next(new Error('Shipping address is required.'));
-  }
-  next();
-});
-
 const Order = mongoose.model('Order', orderSchema);
-
 export default Order;

@@ -12,6 +12,7 @@ const Checkout = () => {
   const navigate = useNavigate();
   const items = useMemo(() => location.state?.items || [], [location.state]);
 
+  // Shipping Address State
   const [shippingAddress, setShippingAddress] = useState(() => {
     const saved = localStorage.getItem("shippingAddress");
     return saved
@@ -29,39 +30,42 @@ const Checkout = () => {
 
   const [saveAddress, setSaveAddress] = useState(false);
 
+  // Handle shipping input changes
   const handleAddressChange = (e) => {
     setShippingAddress({ ...shippingAddress, [e.target.name]: e.target.value });
   };
 
+  // Save address to localStorage if checked
   useEffect(() => {
     if (saveAddress) {
       localStorage.setItem("shippingAddress", JSON.stringify(shippingAddress));
     }
   }, [saveAddress, shippingAddress]);
 
+  // ✅ Check if all shipping fields are filled
+  const isShippingValid = useMemo(() => {
+    return Object.values(shippingAddress).every((val) => val.trim() !== "");
+  }, [shippingAddress]);
+
+  // Calculate subtotal
   const subtotal = useMemo(() => {
     return items.reduce(
       (acc, i) =>
         acc +
-        ((i.offSalePrice ||
-          i.product?.offSalePrice ||
-          i.dailyPrice ||
-          i.product?.dailyPrice) *
+        ((i.offSalePrice || i.product?.offSalePrice || i.dailyPrice || i.product?.dailyPrice) *
           i.quantity),
       0
     );
   }, [items]);
 
+  // Calculate savings for deal items
   const savings = useMemo(() => {
     return items
       .filter((i) => i.dealOfTheDay || i.product?.isDealOfDay)
       .reduce(
         (acc, i) =>
           acc +
-          ((i.offSalePrice ||
-            i.product?.offSalePrice ||
-            i.dailyPrice ||
-            i.product?.dailyPrice) *
+          ((i.offSalePrice || i.product?.offSalePrice || i.dailyPrice || i.product?.dailyPrice) *
             i.quantity *
             0.1),
         0
@@ -79,7 +83,7 @@ const Checkout = () => {
     <div className="max-w-6xl mx-auto mt-10 px-4 py-8 flex flex-col lg:flex-row gap-8">
       {/* Left Side - Shipping + Summary */}
       <div className="flex-1 space-y-6">
-        {/* Shipping Address */}
+        {/* Shipping Information */}
         <div className="bg-white border rounded-lg p-6 shadow-md">
           <h2 className="text-xl font-semibold mb-4">Shipping Information</h2>
           <div className="grid grid-cols-1 gap-3">
@@ -173,6 +177,7 @@ const Checkout = () => {
             items={items}
             shippingAddress={shippingAddress}
             navigate={navigate}
+            isShippingValid={isShippingValid} // ✅ Pass shipping validation
           />
         </Elements>
       </div>
