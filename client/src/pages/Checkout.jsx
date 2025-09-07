@@ -1,17 +1,15 @@
+// src/pages/Checkout.jsx
 import React, { useMemo, useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
-import { PayPalScriptProvider, PayPalButtons, FUNDING } from "@paypal/react-paypal-js";
 import CheckoutForm from "../components/CheckoutForm";
-import axios from "axios";
 
-// Load Stripe & PayPal keys from .env
-const stripePromise = loadStripe(import.meta.env.STRIPE_SECRET_KEY);
-const paypalClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID;
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
 const Checkout = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const items = useMemo(() => location.state?.items || [], [location.state]);
 
   const [shippingAddress, setShippingAddress] = useState(() => {
@@ -30,7 +28,6 @@ const Checkout = () => {
   });
 
   const [saveAddress, setSaveAddress] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState("stripe");
 
   const handleAddressChange = (e) => {
     setShippingAddress({ ...shippingAddress, [e.target.name]: e.target.value });
@@ -78,54 +75,28 @@ const Checkout = () => {
     return <p className="text-center mt-10">No items to checkout</p>;
   }
 
-  const handlePayPalSuccess = async (details, method) => {
-    try {
-      await axios.post("/api/orders", {
-        products: items.map((i) => ({
-          product: i._id || i.product?._id,
-          quantity: i.quantity,
-        })),
-        shippingAddress,
-        totalAmount,
-        paymentMethod: method,
-      });
-
-      alert(`Payment successful with ${method}! Transaction ID: ${details.id}`);
-      window.location.href = "/";
-    } catch (err) {
-      console.error("Order saving failed:", err);
-      alert("Payment done, but order saving failed.");
-    }
-  };
-
   return (
     <div className="max-w-6xl mx-auto mt-10 px-4 py-8 flex flex-col lg:flex-row gap-8">
-      {/* Left Side */}
+      {/* Left Side - Shipping + Summary */}
       <div className="flex-1 space-y-6">
         {/* Shipping Address */}
         <div className="bg-white border rounded-lg p-6 shadow-md">
-          <h2 className="text-xl font-semibold mb-4">Shipping Address</h2>
+          <h2 className="text-xl font-semibold mb-4">Shipping Information</h2>
           <div className="grid grid-cols-1 gap-3">
-            {[
-              "name",
-              "email",
-              "phone",
-              "address",
-              "city",
-              "postalCode",
-              "country",
-            ].map((field) => (
-              <input
-                key={field}
-                type="text"
-                name={field}
-                value={shippingAddress[field]}
-                onChange={handleAddressChange}
-                placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-                className="w-full p-2 border rounded"
-                required
-              />
-            ))}
+            {["name", "email", "phone", "address", "city", "postalCode", "country"].map(
+              (field) => (
+                <input
+                  key={field}
+                  type="text"
+                  name={field}
+                  value={shippingAddress[field]}
+                  onChange={handleAddressChange}
+                  placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              )
+            )}
           </div>
           <div className="flex items-center mt-4">
             <input
@@ -192,137 +163,18 @@ const Checkout = () => {
         </div>
       </div>
 
-      {/* Right Side: Payment */}
+      {/* Right Side - Payment */}
       <div className="w-full lg:w-1/3 bg-white border rounded-lg p-6 shadow-md">
         <h2 className="text-xl font-semibold mb-4">Payment</h2>
 
-        {/* 🔥 Tab Navigation */}
-        <div className="flex border-b mb-4">
-          <button
-            onClick={() => setSelectedPayment("stripe")}
-            className={`flex-1 py-2 text-center font-medium transition ${
-              selectedPayment === "stripe"
-                ? "border-b-4 border-yellow-400 text-yellow-600"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            Card
-          </button>
-          <button
-            onClick={() => setSelectedPayment("paypal")}
-            className={`flex-1 py-2 text-center font-medium transition ${
-              selectedPayment === "paypal"
-                ? "border-b-4 border-yellow-400 text-yellow-600"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            PayPal & Wallets
-          </button>
-        </div>
-
-        {/* Stripe */}
-        {selectedPayment === "stripe" && (
-          <Elements stripe={stripePromise}>
-            <CheckoutForm
-              totalAmount={totalAmount}
-              items={items}
-              shippingAddress={shippingAddress}
-            />
-          </Elements>
-        )}
-
-        {/* PayPal + Wallets */}
-        {selectedPayment === "paypal" && (
-          <PayPalScriptProvider
-            options={{ "client-id": paypalClientId, currency: "GBP" }}
-          >
-            <div className="space-y-4">
-              {/* PayPal Option */}
-              <div className="flex items-center gap-3 p-3 border rounded-lg hover:shadow-md cursor-pointer transition bg-gray-50">
-                <img src="/icons/paypal.png" alt="PayPal" className="w-10 h-10" />
-                <div className="flex-1">
-                  <span className="font-medium">PayPal</span>
-                  <div className="mt-2">
-                    <PayPalButtons
-                      style={{ layout: "horizontal" }}
-                      fundingSource={FUNDING.PAYPAL}
-                      createOrder={(data, actions) =>
-                        actions.order.create({
-                          purchase_units: [
-                            {
-                              amount: { value: totalAmount.toFixed(2), currency_code: "GBP" },
-                            },
-                          ],
-                        })
-                      }
-                      onApprove={(data, actions) =>
-                        actions.order.capture().then((details) => {
-                          handlePayPalSuccess(details, "PayPal");
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Apple Pay Option */}
-              <div className="flex items-center gap-3 p-3 border rounded-lg hover:shadow-md cursor-pointer transition bg-gray-50">
-                <img src="/icons/applepay.png" alt="Apple Pay" className="w-10 h-10" />
-                <div className="flex-1">
-                  <span className="font-medium">Apple Pay</span>
-                  <div className="mt-2">
-                    <PayPalButtons
-                      style={{ layout: "horizontal" }}
-                      fundingSource={FUNDING.APPLEPAY}
-                      createOrder={(data, actions) =>
-                        actions.order.create({
-                          purchase_units: [
-                            {
-                              amount: { value: totalAmount.toFixed(2), currency_code: "GBP" },
-                            },
-                          ],
-                        })
-                      }
-                      onApprove={(data, actions) =>
-                        actions.order.capture().then((details) => {
-                          handlePayPalSuccess(details, "Apple Pay");
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Google Pay Option */}
-              <div className="flex items-center gap-3 p-3 border rounded-lg hover:shadow-md cursor-pointer transition bg-gray-50">
-                <img src="/icons/googlepay.png" alt="Google Pay" className="w-10 h-10" />
-                <div className="flex-1">
-                  <span className="font-medium">Google Pay</span>
-                  <div className="mt-2">
-                    <PayPalButtons
-                      style={{ layout: "horizontal" }}
-                      fundingSource={FUNDING.GOOGLEPAY}
-                      createOrder={(data, actions) =>
-                        actions.order.create({
-                          purchase_units: [
-                            {
-                              amount: { value: totalAmount.toFixed(2), currency_code: "GBP" },
-                            },
-                          ],
-                        })
-                      }
-                      onApprove={(data, actions) =>
-                        actions.order.capture().then((details) => {
-                          handlePayPalSuccess(details, "Google Pay");
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </PayPalScriptProvider>
-        )}
+        <Elements stripe={stripePromise}>
+          <CheckoutForm
+            totalAmount={totalAmount}
+            items={items}
+            shippingAddress={shippingAddress}
+            navigate={navigate}
+          />
+        </Elements>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   useStripe,
   useElements,
@@ -7,130 +7,123 @@ import {
 } from "@stripe/react-stripe-js";
 import axios from "axios";
 
+const CARD_ELEMENT_OPTIONS = {
+  style: {
+    base: {
+      fontSize: "16px",
+      color: "#32325d",
+      fontFamily: "Arial, sans-serif",
+      "::placeholder": { color: "#a0aec0" },
+    },
+    invalid: { color: "#e53e3e" },
+  },
+};
+
 const CheckoutForm = ({ totalAmount, items, shippingAddress, navigate }) => {
   const stripe = useStripe();
   const elements = useElements();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [paymentRequest, setPaymentRequest] = useState(null);
+  const [walletSupported, setWalletSupported] = useState(false);
 
-  // ✅ Google / Apple Pay setup
   useEffect(() => {
     if (!stripe) return;
 
     const pr = stripe.paymentRequest({
       country: "GB",
       currency: "gbp",
-      total: { label: "Total", amount: Math.round(totalAmount * 100) },
+      total: { label: "SupremeDistro", amount: Math.round(totalAmount * 100) },
       requestPayerName: true,
-      requestPayerEmail: true,
+      requestPayerEmail: true, // user will enter email in wallet popup
     });
 
+    // ✅ Check if wallet is supported
     pr.canMakePayment().then((result) => {
-      if (result) setPaymentRequest(pr);
-    });
-
-    pr.on("paymentmethod", async (ev) => {
-      setLoading(true);
-      try {
-        const { data } = await axios.post("/create-payment-intent", {
-          amount: totalAmount * 100,
-        });
-        const clientSecret = data.clientSecret;
-
-        const { error: confirmError, paymentIntent } =
-          await stripe.confirmCardPayment(clientSecret, {
-            payment_method: ev.paymentMethod.id,
-          });
-
-        if (confirmError) {
-          ev.complete("fail");
-          setError(confirmError.message);
-        } else if (paymentIntent.status === "succeeded") {
-          ev.complete("success");
-
-          // ✅ Save order to DB
-          await axios.post("/api/orders", {
-            products: items.map((i) => ({
-              product: i._id,
-              quantity: i.quantity,
-            })),
-            totalAmount,
-            shippingAddress,
-            paymentMethod: "Apple/Google Pay",
-          });
-
-          alert("Payment successful!");
-          navigate("/orders");
-        }
-      } catch (err) {
-        ev.complete("fail");
-        setError(err.response?.data?.message || err.message);
+      if (result) {
+        setPaymentRequest(pr);
+        setWalletSupported(true);
+      } else {
+        setWalletSupported(false);
       }
-      setLoading(false);
     });
-  }, [stripe, totalAmount, items, shippingAddress, navigate]);
+  }, [stripe, totalAmount]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError("");
+    if (!stripe || !elements) return;
 
     try {
-      const { data } = await axios.post("/create-payment-intent", {
-        amount: totalAmount * 100,
-      });
-      const clientSecret = data.clientSecret;
+      // Limit metadata length for Stripe (max 500 chars)
+      const metadataItems = items.map((i) => i.name).join(",").slice(0, 500);
 
-      const result = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: { card: elements.getElement(CardElement) },
+      const { data } = await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/payment/create-payment-intent`,
+        { amount: Math.round(totalAmount * 100), shippingAddress, metadataItems, items }
+      );
+
+      const result = await stripe.confirmCardPayment(data.clientSecret, {
+        payment_method: {
+          card: elements.getElement(CardElement),
+          billing_details: {
+            name: shippingAddress.name,
+            email: shippingAddress.email,
+            phone: shippingAddress.phone,
+          },
+        },
       });
 
       if (result.error) {
-        setError(result.error.message);
+        alert(result.error.message);
       } else if (result.paymentIntent.status === "succeeded") {
-        // ✅ Save order to DB
-        await axios.post("/api/orders", {
-          products: items.map((i) => ({
-            product: i._id,
-            quantity: i.quantity,
-          })),
-          totalAmount,
-          shippingAddress,
-          paymentMethod: "Card",
-        });
-
-        alert("Payment successful!");
-        navigate("/orders");
+        navigate("/success");
       }
     } catch (err) {
-      setError(err.response?.data?.message || err.message);
+      console.error(err);
+      alert("Payment failed. Try again.");
     }
-    setLoading(false);
   };
 
   return (
-    <div className="space-y-6">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <h2 className="text-xl font-semibold">Card Payment</h2>
-        <CardElement className="p-3 border rounded" />
-        {error && <p className="text-red-600">{error}</p>}
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Card Payment */}
+      <div>
+        <h3 className="font-semibold mb-2">Card Payment</h3>
+        <div className="border rounded-lg p-3 shadow-sm">
+          <CardElement options={CARD_ELEMENT_OPTIONS} />
+        </div>
         <button
           type="submit"
-          disabled={!stripe || loading}
-          className="w-full bg-yellow-400 text-black py-2 rounded hover:bg-yellow-500"
+          disabled={!stripe}
+          className="w-full mt-4 bg-yellow-400 text-black font-semibold py-3 rounded-lg hover:bg-yellow-500 transition"
         >
-          {loading ? "Processing..." : `Pay £${totalAmount.toFixed(2)}`}
+          Pay £{totalAmount.toFixed(2)}
         </button>
-      </form>
+      </div>
 
-      {paymentRequest && (
-        <div className="mt-6">
-          <h2 className="text-xl font-semibold">Google / Apple Pay</h2>
-          <PaymentRequestButtonElement options={{ paymentRequest }} />
-        </div>
-      )}
-    </div>
+      {/* Wallet Payment */}
+      <div>
+        <h3 className="font-semibold mb-2">Pay with Wallet</h3>
+        {walletSupported && paymentRequest ? (
+          <div className="border rounded-lg p-3 shadow-sm flex justify-center">
+            <PaymentRequestButtonElement
+              options={{
+                paymentRequest,
+                style: {
+                  paymentRequestButton: {
+                    theme: "dark",
+                    height: "48px",
+                    type: "default",
+                  },
+                },
+              }}
+            />
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">
+            Wallet payments (Apple Pay / Google Pay / Stripe Link) are not supported on this device or browser. Please use card payment.
+          </p>
+        )}
+      </div>
+    </form>
   );
 };
 

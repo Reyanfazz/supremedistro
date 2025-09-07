@@ -1,36 +1,40 @@
-import express from 'express';
-import Stripe from 'stripe';
-import dotenv from 'dotenv';
+// backend/routes/paymentRoutes.js
+import express from "express";
+import Stripe from "stripe";
+import dotenv from "dotenv";
 
 dotenv.config();
 const router = express.Router();
 
-// Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// Create Payment Intent
-router.post('/create-payment-intent', async (req, res) => {
+// ✅ Create Payment Intent
+router.post("/create-payment-intent", async (req, res) => {
   try {
-    const { amount, currency = 'gbp' } = req.body;
+    const { amount, shippingAddress, metadataItems, items } = req.body;
 
     if (!amount || amount <= 0) {
-      return res.status(400).json({ error: 'Invalid amount' });
+      return res.status(400).json({ error: "Invalid amount" });
     }
 
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // convert GBP to pence
-      currency,
-      automatic_payment_methods: {
-        enabled: true, // allows card, Google Pay, Apple Pay automatically
+      amount,
+      currency: "gbp",
+      description: "SupremeDistro Order",
+      automatic_payment_methods: { enabled: true },
+      metadata: {
+        items: metadataItems || "", // short string for Stripe
+        name: shippingAddress?.name || "",
+        email: shippingAddress?.email || "",
+        phone: shippingAddress?.phone || "",
       },
     });
 
-    res.status(200).json({
-      clientSecret: paymentIntent.client_secret,
-    });
+    // Send clientSecret & full items to frontend (for DB save via webhook)
+    res.json({ clientSecret: paymentIntent.client_secret, items });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Payment Intent creation failed' });
+    console.error("Stripe Error:", error.message);
+    res.status(500).json({ error: "Payment Intent creation failed" });
   }
 });
 

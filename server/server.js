@@ -16,6 +16,7 @@ import adminRoutes from './routes/adminRoutes.js';
 import addressRoutes from './routes/address.js';
 import categoryRoutes from './routes/categoryRoutes.js';
 import paymentRoutes from './routes/payment.js'; // <-- Add this
+import webhookRoutes from './routes/paymentWebhook.js';
 
 dotenv.config();
 
@@ -62,7 +63,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/address', addressRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/payment', paymentRoutes); // <-- Add payment route
-
+app.use('/api/payment', webhookRoutes);
 // === MongoDB connection ===
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
