@@ -1,3 +1,4 @@
+// backend/server.js
 import express from 'express';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
@@ -7,7 +8,7 @@ import session from 'express-session';
 import fs from 'fs';
 import path from 'path';
 
-// Import routes
+// Routes
 import './config/passport.js';
 import productroutes from './routes/productRoutes.js';
 import router from './routes/auth.js';
@@ -15,11 +16,10 @@ import protectedRoutes from './routes/protectedRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import addressRoutes from './routes/address.js';
 import categoryRoutes from './routes/categoryRoutes.js';
-import paymentRoutes from './routes/payment.js'; // <-- Add this
-import webhookRoutes from './routes/paymentWebhook.js';
+import paymentRoutes from './routes/payment.js'; // payment intents
+import webhookRoutes from './routes/paymentWebhook.js'; // webhook
 
 dotenv.config();
-
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -32,7 +32,6 @@ const allowedOrigins = [
   'http://localhost:3000',
   'https://supremedistro.vercel.app'
 ];
-
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) callback(null, true);
@@ -42,6 +41,7 @@ app.use(cors({
 }));
 
 // === Middleware ===
+// Only parse JSON for normal routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -53,7 +53,7 @@ app.use(session({
 
 app.use(passport.initialize());
 app.use(passport.session());
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use('/uploads', express.static(uploadsDir));
 
 // === Routes ===
 app.use('/api/auth', router);
@@ -62,8 +62,13 @@ app.use('/api/products', productroutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/address', addressRoutes);
 app.use('/api/categories', categoryRoutes);
-app.use('/api/payment', paymentRoutes); // <-- Add payment route
-app.use('/api/payment', webhookRoutes);
+
+// ✅ Payment Intent route (JSON)
+app.use('/api/payment', paymentRoutes);
+
+// ✅ Stripe Webhook route (raw body, separate)
+app.use('/api/webhook', webhookRoutes);
+
 // === MongoDB connection ===
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {

@@ -23,6 +23,7 @@ const CheckoutForm = ({ totalAmount, items, shippingAddress, navigate }) => {
   const stripe = useStripe();
   const elements = useElements();
   const [paymentRequest, setPaymentRequest] = useState(null);
+  const [walletSupported, setWalletSupported] = useState(false);
 
   useEffect(() => {
     if (!stripe) return;
@@ -32,12 +33,16 @@ const CheckoutForm = ({ totalAmount, items, shippingAddress, navigate }) => {
       currency: "gbp",
       total: { label: "SupremeDistro", amount: Math.round(totalAmount * 100) },
       requestPayerName: true,
-      requestPayerEmail: true,
+      requestPayerEmail: false, // ⚠ do NOT set payerEmail here
     });
 
-    // Only set if wallet is supported
     pr.canMakePayment().then((result) => {
-      if (result) setPaymentRequest(pr);
+      if (result) {
+        setPaymentRequest(pr);
+        setWalletSupported(true);
+      } else {
+        setWalletSupported(false);
+      }
     });
   }, [stripe, totalAmount]);
 
@@ -46,11 +51,13 @@ const CheckoutForm = ({ totalAmount, items, shippingAddress, navigate }) => {
     if (!stripe || !elements) return;
 
     try {
-      const metadataItems = items.map((i) => i.name).join(",").slice(0, 500);
+      const metadataItems = JSON.stringify(
+        items.map((i) => ({ name: i.name, quantity: i.quantity }))
+      ).slice(0, 500); // ⚠ Stripe metadata max 500 chars
 
       const { data } = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/payment/create-payment-intent`,
-        { amount: Math.round(totalAmount * 100), shippingAddress, metadataItems, items }
+        { amount: Math.round(totalAmount * 100), shippingAddress, items, metadataItems }
       );
 
       const result = await stripe.confirmCardPayment(data.clientSecret, {
@@ -62,13 +69,12 @@ const CheckoutForm = ({ totalAmount, items, shippingAddress, navigate }) => {
             phone: shippingAddress.phone,
           },
         },
-        // ✅ Enable Stripe Link auto-fill
-        link: { enabled: true },
+        link: { enabled: true }, // enable Stripe Link auto-fill
       });
 
       if (result.error) {
         alert(result.error.message);
-      } else if (result.paymentIntent.status === "succeeded") {
+      } else if (result.paymentIntent?.status === "succeeded") {
         navigate("/success");
       }
     } catch (err) {
@@ -95,9 +101,9 @@ const CheckoutForm = ({ totalAmount, items, shippingAddress, navigate }) => {
       </div>
 
       {/* Wallet Payment */}
-      {paymentRequest && (
-        <div>
-          <h3 className="font-semibold mb-2">Pay with Wallet</h3>
+      <div>
+        <h3 className="font-semibold mb-2">Pay with Wallet</h3>
+        {walletSupported && paymentRequest ? (
           <div className="border rounded-lg p-3 shadow-sm flex justify-center">
             <PaymentRequestButtonElement
               options={{
@@ -112,8 +118,12 @@ const CheckoutForm = ({ totalAmount, items, shippingAddress, navigate }) => {
               }}
             />
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-gray-500">
+            Wallet payments (Apple Pay / Google Pay / Stripe Link) are not supported on this device or browser. Please use card payment.
+          </p>
+        )}
+      </div>
     </form>
   );
 };

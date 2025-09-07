@@ -7,12 +7,11 @@ import Order from "../models/Order.js";
 
 dotenv.config();
 const router = express.Router();
-
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// ✅ Raw body parser required by Stripe
+// ✅ Raw body parser required for Stripe webhook
 router.post(
-  "/webhook",
+  "/",
   bodyParser.raw({ type: "application/json" }),
   async (req, res) => {
     const sig = req.headers["stripe-signature"];
@@ -26,24 +25,20 @@ router.post(
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
-    // Handle successful payments
     if (event.type === "payment_intent.succeeded") {
       const paymentIntent = event.data.object;
 
       try {
-        // Metadata (short)
         const shippingAddress = {
           name: paymentIntent.metadata.name || "",
           email: paymentIntent.metadata.email || "",
           phone: paymentIntent.metadata.phone || "",
         };
 
-        // ✅ Get full cart sent from frontend (optional: store in DB directly via payment intent)
-        const items = paymentIntent.metadata.fullCart
-          ? JSON.parse(paymentIntent.metadata.fullCart)
-          : []; // fallback empty
+        const items = paymentIntent.metadata.items
+          ? paymentIntent.metadata.items.split(",").map((name) => ({ name, quantity: 1 }))
+          : [];
 
-        // Save order with exact cart info
         await Order.create({
           paymentIntentId: paymentIntent.id,
           amount: paymentIntent.amount / 100,
@@ -53,11 +48,7 @@ router.post(
           customerName: shippingAddress.name,
           customerPhone: shippingAddress.phone,
           shippingAddress,
-          items: items.length
-            ? items
-            : paymentIntent.metadata.items
-            ? paymentIntent.metadata.items.split(",").map((name) => ({ name, quantity: 1 }))
-            : [],
+          items,
           paymentMethod: paymentIntent.payment_method_types[0],
           createdAt: new Date(),
         });
